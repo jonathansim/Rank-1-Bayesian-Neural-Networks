@@ -19,7 +19,7 @@ from wide_resnet import WideResNet
 # Add parsing functionality 
 parser = argparse.ArgumentParser(description='Deterministic Wide ResNet (on CIFAR 10)')
 
-parser.add_argument('--epochs', type=int, default=2, help='number of epochs to train')
+parser.add_argument('--epochs', type=int, default=20, help='number of epochs to train')
 parser.add_argument('--batch-size', type=int, default=128, help='input mini-batch size for training')
 parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
@@ -137,16 +137,17 @@ def main():
     
     if use_subset: 
         # Creating subset of data to efficiently run model locally 
-        num_samples_train = 500
-        num_samples_val = 60
-        indices_train = np.random.choice(len(train_set), num_samples_train, replace=False)
+        # num_samples_train = 500
+        num_samples_val = 1000
+        # indices_train = np.random.choice(len(train_set), num_samples_train, replace=False)
         indices_val = np.random.choice(len(val_set), num_samples_val, replace=False)
 
-        subset_train_set = Subset(train_set, indices_train)
+        # subset_train_set = Subset(train_set, indices_train)
         subset_val_set = Subset(val_set, indices_val)
 
-        train_loader = DataLoader(subset_train_set, batch_size=30, shuffle=True, num_workers=2)
-        val_loader = DataLoader(subset_val_set, batch_size=10, shuffle=False, num_workers=2)
+        # train_loader = DataLoader(subset_train_set, batch_size=30, shuffle=True, num_workers=2)
+        # val_loader = DataLoader(subset_val_set, batch_size=10, shuffle=False, num_workers=2)
+        val_loader = DataLoader(subset_val_set, batch_size=128, shuffle=False, num_workers=2)
     
     # Model setup
     model = WideResNet(depth=28, widen_factor=10, num_classes=10).to(device)
