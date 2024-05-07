@@ -12,28 +12,39 @@ class Conv2DRank1(PyroModule):
     def __init__(self,
                  in_channels,
                  out_channels,
-                 kernel_size,
+                 kernel_size: int,
                  stride=1,
                  padding=0,
                  dilation=1,
                  bias=True,
-                 alpha_initializer='trainable_normal',
-                 gamma_initializer='trainable_normal',
+                 r_initializer='trainable_normal',
+                 s_initializer='trainable_normal',
                  groups=1):
         super(Conv2DRank1, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
+        # self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
+        self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
         self.dilation = dilation
         self.groups = groups
-        self.alpha_initializer = initializers.get_initializer(alpha_initializer)
-        self.gamma_initializer = initializers.get_initializer(gamma_initializer)
+        #self.r_initializer = initializers.get_initializer(r_initializer)
+        #self.s_initializer = initializers.get_initializer(s_initializer)
 
-        # Rank-1 factorization
-        self.alpha = None
-        self.gamma = None
+        # Initialize the deterministic weight matrix W
+        self.W = nn.Parameter(torch.empty(out_channels, in_channels, kernel_size, kernel_size))
+
+        # Apply He initialization (Kaiming)
+        torch.nn.init.kaiming_normal_(self.W, mode='fan_in', nonlinearity='relu') # should the mode be fan_out instead? 
+        self.W.requires_grad_(False)  # Ensure W is not trainable
+
+        # Rank-1 factorization - define variational parameters for r and s as Pyro samples
+        # self.r = PyroSample(dist.Normal(0, 1).expand([out_channels]).to_event(1))
+        # self.s = PyroSample(dist.Normal(0, 1).expand([in_channels]).to_event(1))
+
+        self.u = PyroSample(prior=dist.Normal(0., 1.).expand([out_channels, 1, kernel_size, kernel_size]).to_event(4))
+        self.v = PyroSample(prior=dist.Normal(0., 1.).expand([1, in_channels, 1, 1]).to_event(4))
 
         # Define bias if required 
         if bias:
@@ -42,4 +53,8 @@ class Conv2DRank1(PyroModule):
             self.register_parameter('bias', None)
     
     def forward(self, x):
-        
+         # Rank-1 perturbation - Pyro automatically samples r and s when they are accessed
+        rsT = torch.ger(self.r, self.s).view(self.out_channels, self.in_channels, 1, 1)
+        perturbed_W = self.W * rsT
+
+        return nn.functional.conv2d(x, perturbed_W, None, self.stride, self.padding) # temporary (currently no prior)
