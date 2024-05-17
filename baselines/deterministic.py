@@ -12,9 +12,10 @@ import numpy as np
 import torchmetrics
 import json 
 from datetime import datetime
+import random
 
 from wide_resnet import WideResNet
-
+from data_utils import load_data
 
 # Add parsing functionality 
 parser = argparse.ArgumentParser(description='Deterministic Wide ResNet (on CIFAR 10)')
@@ -27,7 +28,15 @@ parser.add_argument('--nesterov', default=True, type=bool, help='nesterov moment
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
-parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a small subset or entire dataset (for debugging locally)")
+parser.add_argument('--subset-size', default=1000, type=int, help="number of data samples used (if None, all used) (for debugging locally)")
+
+
+def set_training_seed(seed):
+    # Function to set the different seeds 
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
 def train(model, device, train_loader, optimizer, criterion, epoch, scheduler=None):
     print('\nEpoch: %d' % epoch)
@@ -93,10 +102,14 @@ def validate(model, test_loader, device, epoch, metrics=None):
 
 
 def main():
+    # Parse arguments
     args = parser.parse_args(args=[])
+    training_seed = args.seed
+    batch_size = args.batch_size
+    subset_size = args.subset_size 
+    data_seed = 42 # seed used for data loading (e.g. transformations)
     
-    # Set seed
-    torch.manual_seed(args.seed)
+    # Set device
     if torch.cuda.is_available():
         device = torch.device("cuda")
     elif torch.backends.mps.is_available():
@@ -111,44 +124,11 @@ def main():
     metrics = {"accuracy": model_accuracy, "ece": model_ECE} # note that NLL is computed directly in val loop
     
     # Data pre-processing
+    train_loader, val_loader, test_loader = load_data(batch_size=batch_size, seed=data_seed, subset_size=subset_size)
 
-    normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)) # ((m_c1, m_c2, m_c3), (sd_c1, sd_c2, sd_c3))
+    # Set seed for training
+    set_training_seed(training_seed)
 
-    train_transform = transforms.Compose([
-        transforms.Pad(4, padding_mode='reflect'),
-        transforms.RandomCrop(32),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize,
-    ])
-
-    test_transform = transforms.Compose([
-        transforms.ToTensor(),
-        normalize
-    ])
-
-    # Loading the CIFAR-10 dataset 
-    train_set = torchvision.datasets.CIFAR10(root='../data', train=True, download=True, transform=train_transform)
-    val_set = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=test_transform)
-    train_loader = DataLoader(train_set, batch_size=128, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_set, batch_size=128, shuffle=False, num_workers=2)
-
-    use_subset = args.use_subset
-    
-    if use_subset: 
-        # Creating subset of data to efficiently run model locally 
-        # num_samples_train = 500
-        num_samples_val = 1000
-        # indices_train = np.random.choice(len(train_set), num_samples_train, replace=False)
-        indices_val = np.random.choice(len(val_set), num_samples_val, replace=False)
-
-        # subset_train_set = Subset(train_set, indices_train)
-        subset_val_set = Subset(val_set, indices_val)
-
-        # train_loader = DataLoader(subset_train_set, batch_size=30, shuffle=True, num_workers=2)
-        # val_loader = DataLoader(subset_val_set, batch_size=10, shuffle=False, num_workers=2)
-        val_loader = DataLoader(subset_val_set, batch_size=128, shuffle=False, num_workers=2)
-    
     # Model setup
     model = WideResNet(depth=28, widen_factor=10, num_classes=10).to(device)
 
@@ -163,20 +143,20 @@ def main():
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
 
     # Results for each epoch
-    all_results = []
+    all_val_results = []
     for epoch in range(args.epochs):
         train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, criterion=criterion, epoch=epoch, scheduler=scheduler)
-        results = validate(model=model, test_loader=val_loader, device=device, epoch=epoch, metrics=metrics)
-        all_results.append(results)
+        val_results = validate(model=model, test_loader=val_loader, device=device, epoch=epoch, metrics=metrics)
+        all_val_results.append(val_results)
     
-    print(all_results)
+    print(all_val_results)
 
     # Save results for later
     current_time = datetime.now().strftime("%m-%d-H%H")
     filename = f'results_{current_time}.json'
 
     with open(filename, 'w') as file:
-        json.dump(all_results, file)
+        json.dump(all_val_results, file)
 
 if __name__ == '__main__':
    main()
