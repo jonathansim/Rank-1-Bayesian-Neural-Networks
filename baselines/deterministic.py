@@ -153,7 +153,7 @@ def main():
 
     # Save results for later
     current_time = datetime.now().strftime("%m-%d-H%H")
-    filename = f'results_{current_time}.json'
+    filename = f'det_results_{current_time}.json'
 
     with open(filename, 'w') as file:
         json.dump(all_val_results, file)
