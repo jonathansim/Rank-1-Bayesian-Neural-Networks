@@ -139,6 +139,7 @@ def main():
         subset_size = None
     data_seed = 42 # seed used for data loading (e.g. transformations)
     print(f"We are using this subset size right now {subset_size}")
+    print(f"lalalalala {args.use_subset}")
     
     print(f"Total number of epochs {args.epochs}")
     # Set device
