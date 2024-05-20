@@ -22,8 +22,8 @@
 #BSUB -N
 ### -- Specify the output and error file. %J is the job-id --
 ### -- -o and -e mean append, -oo and -eo mean overwrite --
-#BSUB -o gpu_%J.out
-#BSUB -e gpu_%J.err
+#BSUB -oo gpu_%J.out
+#BSUB -eo gpu_%J.err
 # -- end of LSF options --
 
 module load python3/3.10.13
@@ -32,6 +32,6 @@ source bachelor_venv/bin/activate
 cd project_code/ 
 
 python3 baselines/deterministic.py \
---epochs 200 \
+--epochs 5 \
 --use-subset False
 
