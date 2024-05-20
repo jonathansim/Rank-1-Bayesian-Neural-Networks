@@ -27,7 +27,9 @@
 # -- end of LSF options --
 
 module load python3/3.10.13
-source ../bachelor_venv/bin/activate
+source bachelor_venv/bin/activate
+
+cd project_code/ 
 
 python3 baselines/deterministic.py \
 --epochs 200 \

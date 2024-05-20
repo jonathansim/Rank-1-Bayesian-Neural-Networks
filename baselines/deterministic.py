@@ -186,6 +186,7 @@ def main():
     test_metrics = None
     if args.use_subset is False: 
         test_metrics = evaluate(model=model, test_loader=test_loader, device=device, metrics=metrics, phase="Testing")
+        print("Now computing test metrics!")
 
     # Save results for later
     current_time = datetime.now().strftime("%m-%d-H%H")
