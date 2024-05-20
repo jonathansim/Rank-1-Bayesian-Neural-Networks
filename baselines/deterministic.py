@@ -28,7 +28,7 @@ parser.add_argument('--nesterov', default=True, type=bool, help='nesterov moment
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
-parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a subset (for debugging locally) or all data")
+parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
 
 
 def set_training_seed(seed):
@@ -138,8 +138,7 @@ def main():
     else: 
         subset_size = None
     data_seed = 42 # seed used for data loading (e.g. transformations)
-    print(f"We are using this subset size right now {subset_size}")
-    print(f"lalalalala {args.use_subset}")
+    print(f"Are we using a subset? {args.use_subset}")
     
     print(f"Total number of epochs {args.epochs}")
     # Set device
