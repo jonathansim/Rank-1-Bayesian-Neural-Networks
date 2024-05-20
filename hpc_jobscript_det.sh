@@ -26,6 +26,7 @@
 #BSUB -e gpu_%J.err
 # -- end of LSF options --
 
+module load python3/3.10.13
 source ../bachelor_venv/bin/activate
 
 python3 baselines/deterministic.py \
