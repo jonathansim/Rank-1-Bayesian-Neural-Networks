@@ -1,0 +1,16 @@
+# Deterministic WR
+    In the linear layer, the weights should be initialized with Kaiming Normal 
+
+
+# Thursday morning
+Fix wide resnet model and figure out why v2 gives NANs 
+
+Set up elbo loss function 
+    DONE figure out difference between using nll_loss and cross_entropy DONE
+    DONE implement L2 reg
+
+    Look into whether the nll should really be scaled by N/B or if the "classical" 1/B is fine
+
+
+# Model parameters
+Implement prior mean and stddev as hyperparameters

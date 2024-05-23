@@ -7,7 +7,7 @@ More functionality is to be added soon.
 '''
 
 # Load in relevant file using JSON
-filename = 'results_test.json'
+filename = 'det_val_results_05-21-H14.json'
 with open(filename, 'r') as file:
     results = json.load(file)
 
