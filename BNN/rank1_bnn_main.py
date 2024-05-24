@@ -88,7 +88,7 @@ def train(model,
         # if (batch_idx + 1) % 20 == 0:
         #     wandb.log({"loss": running_loss/20, "nll_loss": running_nll/20, "kl_div": running_kl/20})
         #     running_loss, running_nll, running_kl = 0, 0, 0
-        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item()})
+        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), "batch_idx": batch_counter})
         
     train_accuracy = 100 * correct / total
     current_lr = optimizer.param_groups[0]['lr']
