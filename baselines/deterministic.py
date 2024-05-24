@@ -1,9 +1,7 @@
-import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchmetrics.classification
-import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Subset
 import torch.nn.functional as F
@@ -13,6 +11,7 @@ import torchmetrics
 import json 
 from datetime import datetime
 import random
+import wandb 
 
 from wide_resnet import WideResNet
 # from wide_resnet_v2 import WideResNet

@@ -80,3 +80,10 @@ class Rank1Bayesian_WideResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
+
+    def kl_divergence(self):
+        kl = 0
+        for module in self.modules():
+            if isinstance(module, (Rank1BayesianConv2d, Rank1BayesianLinear)):
+                kl += module.kl_divergence()
+        return kl

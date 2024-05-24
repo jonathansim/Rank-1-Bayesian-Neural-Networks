@@ -12,9 +12,9 @@ from bnn_utils import elbo_loss
 class SimpleBNN(nn.Module):
     def __init__(self):
         super(SimpleBNN, self).__init__()
-        self.conv1 = Rank1BayesianConv2d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.conv1 = Rank1BayesianConv2d(3, 32, kernel_size=3, stride=1, padding=1)
         self.bn1 = nn.BatchNorm2d(32)
-        self.fc1 = Rank1BayesianLinear(32*28*28, 128)
+        self.fc1 = Rank1BayesianLinear(32*32*32, 128)
         self.bn2 = nn.BatchNorm1d(128)
         self.fc2 = Rank1BayesianLinear(128, 64)
         self.bn3 = nn.BatchNorm1d(64)
@@ -22,7 +22,7 @@ class SimpleBNN(nn.Module):
     
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
-        x = x.view(-1, 32*28*28)
+        x = x.view(-1, 32*32*32)
         x = F.relu(self.bn2(self.fc1(x)))
         x = F.relu(self.bn3(self.fc2(x)))
         x = self.fc3(x)
@@ -37,7 +37,7 @@ class SimpleBNN(nn.Module):
 
 # Load the MNIST dataset
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
+train_dataset = datasets.CIFAR10('./data', train=True, download=True, transform=transform)
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
 # Initialize the model, optimizer, and loss function
@@ -58,7 +58,7 @@ def train(model, optimizer, train_loader, epochs=1, weight_decay=1e-4):
             optimizer.zero_grad()
             
             output = model(data)
-            loss = elbo_loss(output, target, model, batch_counter=batch_counter, num_batches=num_batches, kl_annealing_epochs=13, weight_decay=weight_decay)
+            loss, nll_loss, kl_loss = elbo_loss(output, target, model, batch_counter=batch_counter, num_batches=num_batches, kl_annealing_epochs=13, weight_decay=weight_decay)
             loss.backward()
             optimizer.step()
 
@@ -66,7 +66,7 @@ def train(model, optimizer, train_loader, epochs=1, weight_decay=1e-4):
             running_loss += loss.item()
             
             if batch_idx % 100 == 0:
-                print(f'Epoch [{epoch + 1}/{epochs}], Step [{batch_idx}/{len(train_loader)}], Loss: {loss.item():.4f}')
+                print(f'Epoch [{epoch + 1}/{epochs}], Step [{batch_idx}/{len(train_loader)}], Loss: {loss.item():.4f}, KL: {kl_loss.item():.4f}, NLL: {nll_loss.item():.4f}')
         
         print(f'Epoch [{epoch + 1}/{epochs}], Average Loss: {running_loss / len(train_loader.dataset):.4f}')
     print(f"The batchcounter is at: {batch_counter}")

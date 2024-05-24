@@ -17,7 +17,7 @@ def elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_ep
     Computes the loss function as given by eq. (2) in Dusenberry et al. (2020). 
     '''
     # Negative log-likelihood
-    nll_loss = F.cross_entropy(output, target, reduction='mean')
+    nll_loss = F.cross_entropy(output, target, reduction='sum')
     
     # KL divergence regularization term 
     kl_div = model.kl_divergence()
@@ -39,7 +39,7 @@ def elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_ep
     # Total ELBO loss
     total_loss = nll_loss + kl_loss + weight_decay * l2_reg
 
-    return total_loss 
+    return total_loss, nll_loss, kl_loss
 
 
 

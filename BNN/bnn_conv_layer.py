@@ -24,20 +24,20 @@ class Rank1BayesianConv2d(nn.Module):
         else:
             self.register_parameter('bias', None)
         # Rank-1 perturbation parameters
-        self.u = nn.Parameter(torch.Tensor(out_channels, 1, 1, 1).uniform_(-0.1, 0.1))
-        self.v = nn.Parameter(torch.Tensor(1, in_channels, kernel_size, kernel_size).uniform_(-0.1, 0.1))
+        self.u = nn.Parameter(torch.Tensor(out_channels, 1, 1, 1).normal_(mean=1.0, std=0.5))
+        self.v = nn.Parameter(torch.Tensor(1, in_channels, kernel_size, kernel_size).normal_(mean=1.0, std=0.5))
         
         # Rank-1 perturbation log-standard-deviation parameters
         self.u_rho = nn.Parameter(torch.Tensor(out_channels, 1, 1, 1).uniform_(-5, -4))  # Initialize with uniform distribution
-        self.v_rho = nn.Parameter(torch.Tensor(1, in_channels, kernel_size, kernel_size).uniform_(-5, -4))   # Initialize with uniform distribution
+        self.v_rho = nn.Parameter(torch.Tensor(1, in_channels, kernel_size, kernel_size).uniform_(-3.6, -3.2))   # Initialize with uniform distribution
         
         # Prior distributions
         self.weight_prior = Normal(0, 1)
 
     def forward(self, x):
         # Convert rho parameters to standard deviations using softplus
-        u_sigma = torch.log1p(torch.exp(self.u_rho))
-        v_sigma = torch.log1p(torch.exp(self.v_rho))
+        u_sigma = torch.log1p(torch.exp(self.u_rho)) + 1e-6
+        v_sigma = torch.log1p(torch.exp(self.v_rho)) + 1e-6
         
         # Sample perturbations from the Gaussian distributions
         u_sample = Normal(self.u, u_sigma).rsample()
@@ -51,8 +51,8 @@ class Rank1BayesianConv2d(nn.Module):
 
     def kl_divergence(self):
         # Convert rho parameters to standard deviations using softplus
-        u_sigma = torch.log1p(torch.exp(self.u_rho))
-        v_sigma = torch.log1p(torch.exp(self.v_rho))
+        u_sigma = torch.log1p(torch.exp(self.u_rho)) + 1e-6
+        v_sigma = torch.log1p(torch.exp(self.v_rho)) + 1e-6 
         
         # Create the posterior distributions for u and v
         u_posterior = Normal(self.u, u_sigma)

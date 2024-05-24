@@ -31,8 +31,8 @@ class Rank1BayesianLinear(nn.Module):
 
     def forward(self, x):
         # Convert rho parameters to standard deviations using softplus
-        u_sigma = torch.log1p(torch.exp(self.u_rho))
-        v_sigma = torch.log1p(torch.exp(self.v_rho))
+        u_sigma = torch.log1p(torch.exp(self.u_rho)) + 1e-6
+        v_sigma = torch.log1p(torch.exp(self.v_rho)) + 1e-6
         
         # Sample perturbations from the Gaussian distributions
         u_sample = Normal(self.u, u_sigma).rsample()
@@ -46,8 +46,8 @@ class Rank1BayesianLinear(nn.Module):
 
     def kl_divergence(self):
         # Convert rho parameters to standard deviations using softplus
-        u_sigma = torch.log1p(torch.exp(self.u_rho))
-        v_sigma = torch.log1p(torch.exp(self.v_rho))
+        u_sigma = torch.log1p(torch.exp(self.u_rho)) + 1e-6
+        v_sigma = torch.log1p(torch.exp(self.v_rho)) + 1e-6
         
         u_posterior = Normal(self.u, u_sigma)
         v_posterior = Normal(self.v, v_sigma)

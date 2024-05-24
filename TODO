@@ -14,3 +14,8 @@ Set up elbo loss function
 
 # Model parameters
 Implement prior mean and stddev as hyperparameters
+
+
+# Loss function
+Right now, NLL contribution and KL contribution is computed for entire batch (i.e. sum), while L2 regularization is only computed once - meaning this will be
+much smaller. Look into how to go about this. 
