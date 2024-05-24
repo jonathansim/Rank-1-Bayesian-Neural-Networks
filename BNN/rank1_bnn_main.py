@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description='Rank-1 Bayesian Wide ResNet (on CI
 
 parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train')
 parser.add_argument('--batch-size', type=int, default=128, help='input mini-batch size for training')
-parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
+parser.add_argument('--lr', type=float, default=0.005, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
