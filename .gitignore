@@ -3,3 +3,5 @@ standard_BNN.ipynb
 hpc_jobscript_det.sh
 wandb/
 TODO
+__pycache__/
+*.pyc

@@ -77,21 +77,22 @@ def train(model,
         if scheduler:
             scheduler.step()
 
-        running_loss += loss.item()
-        running_nll += nll_loss.item()
-        running_kl += kl_loss.item()
+        # running_loss += loss.item()
+        # running_nll += nll_loss.item()
+        # running_kl += kl_loss.item()
 
         _, predicted = output.max(1)
         total += target.size(0)
         correct += predicted.eq(target).sum().item()
         
-        if (batch_idx + 1) % 20 == 0:
-            wandb.log({"loss": running_loss/20, "nll_loss": running_nll/20, "kl_div": running_kl/20})
-            running_loss, running_nll, running_kl = 0, 0, 0
+        # if (batch_idx + 1) % 20 == 0:
+        #     wandb.log({"loss": running_loss/20, "nll_loss": running_nll/20, "kl_div": running_kl/20})
+        #     running_loss, running_nll, running_kl = 0, 0, 0
+        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item()})
         
     train_accuracy = 100 * correct / total
     current_lr = optimizer.param_groups[0]['lr']
-    wandb.log({"accuracy": train_accuracy, "lr": current_lr})
+    wandb.log({"epoch": epoch+1, "accuracy": train_accuracy, "lr": current_lr})
 
 
 # def evaluate(model, device, test_loader, epoch=None, phase="Validation"):
