@@ -31,7 +31,7 @@ parser.add_argument('--nesterov', default=True, type=bool, help='nesterov moment
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
-parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
+parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a subset (for debugging locally) or all data")
 
 def set_training_seed(seed):
     # Function to set the different seeds 
@@ -53,7 +53,7 @@ def train(model,
 
     print('\nEpoch: %d' % epoch)
     model.train()
-    running_loss, running_nll, running_kl = 0, 0, 0
+    # running_loss, running_nll, running_kl = 0, 0, 0
     correct = 0
     total = 0
     num_batches = num_batches
@@ -88,28 +88,36 @@ def train(model,
         # if (batch_idx + 1) % 20 == 0:
         #     wandb.log({"loss": running_loss/20, "nll_loss": running_nll/20, "kl_div": running_kl/20})
         #     running_loss, running_nll, running_kl = 0, 0, 0
-        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), "batch_idx": batch_counter})
+        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), "batch_count": batch_counter})
         
     train_accuracy = 100 * correct / total
     current_lr = optimizer.param_groups[0]['lr']
     wandb.log({"epoch": epoch+1, "accuracy": train_accuracy, "lr": current_lr})
 
+    return batch_counter
 
-# def evaluate(model, device, test_loader, epoch=None, phase="Validation"):
-#     model.eval()
-#     test_loss = 0
-#     correct = 0
-#     total = len(test_loader.dataset)
 
-#     with torch.no_grad():
-#         for (inputs, labels) in test_loader: 
-#             inputs, labels = inputs.to(device), labels.to(device)
-#             outputs = model(inputs)
+def evaluate(model, device, test_loader, epoch=None, phase="Validation"):
+    model.eval()
+    test_loss = 0
+    correct = 0
+    total = len(test_loader.dataset)
+
+    with torch.no_grad():
+        for (inputs, labels) in test_loader: 
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            nll_loss = F.cross_entropy(outputs, labels, reduction="sum")
+            pred = outputs.argmax(dim=1, keepdim=True)
+            correct += pred.eq(labels.view_as(pred)).sum().item()
+            wandb.log({"validation_nll_loss": nll_loss.item()})
+    accuracy = 100. * correct / total
+    wandb.log({"validation_accuracy": accuracy})
 
 
 def main():
     # Initialize W&B
-    wandb.init(project='rank1-bnn-WR', mode="online")
+    wandb.init(project='rank1-bnn-WR', mode="disabled")
 
     args = parser.parse_args()
     training_seed = args.seed
@@ -158,8 +166,9 @@ def main():
 
     # # Training
     for epoch in range(args.epochs):
-        train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, epoch=epoch, 
+        batch_counter = train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, epoch=epoch, 
               batch_counter=batch_counter, num_batches=num_batches, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
+        evaluate(model=model, device=device, test_loader=val_loader)
         
 
 if __name__ == '__main__':
