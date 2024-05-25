@@ -76,8 +76,9 @@ def train(model,
         optimizer.step()
 
         # Use LR scheduler 
-        if scheduler:
-            scheduler.step()
+        # (Below code only if using e.g. cosine-annealing!! - not MultiStepLR, where it should be put later)
+        # if scheduler:
+        #     scheduler.step()
 
         # running_loss += loss.item()
         # running_nll += nll_loss.item()
@@ -173,6 +174,10 @@ def main():
         batch_counter = train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, epoch=epoch, 
               batch_counter=batch_counter, num_batches=num_batches, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
         evaluate(model=model, device=device, test_loader=val_loader)
+
+        # Step the scheduler at the end of each epoch
+        scheduler.step()
+        print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
         
 
 if __name__ == '__main__':
