@@ -158,11 +158,12 @@ def main():
     if args.use_scheduler:
         print("Now using a scheduler for the LR!!")
         # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 120, 160], gamma=0.2)
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.2)
     
     batch_counter = 0
     num_batches = len(train_loader)
-    kl_annealing_epochs = args.epochs * 2/3 
+    # kl_annealing_epochs = args.epochs * 2/3 
+    kl_annealing_epochs = 200
 
     # print(f"Initial u: {model.conv1.u}")
     # print(f"Initial v: {model.conv1.v}")
