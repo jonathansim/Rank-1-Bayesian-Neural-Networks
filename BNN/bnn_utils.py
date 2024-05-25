@@ -12,15 +12,15 @@ def he_normal(tensor, mode='fan_in', nonlinearity='relu'):
     return tensor
 
 
-def elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_epochs, weight_decay =1e-4):
+def elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_epochs, num_data_samples, weight_decay =1e-4):
     '''
     Computes the loss function as given by eq. (2) in Dusenberry et al. (2020). 
     '''
     # Negative log-likelihood
-    nll_loss = F.cross_entropy(output, target, reduction='sum')
+    nll_loss = F.cross_entropy(output, target, reduction='mean')
     
     # KL divergence regularization term 
-    kl_div = model.kl_divergence()
+    kl_div = model.kl_divergence() / num_data_samples
     # print(f"The total KL loss for this batch is: {kl_div}")
 
     # KL annealing
