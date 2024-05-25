@@ -119,6 +119,26 @@ def evaluate(model, device, test_loader, epoch=None, phase="Validation"):
     wandb.log({"validation_accuracy": accuracy})
 
 
+def test_evaluate(model, device, test_loader, epoch=None, phase="Testing"):
+    model.eval()
+    test_loss = 0
+    correct = 0
+    total = len(test_loader.dataset)
+
+    with torch.no_grad():
+        for (inputs, labels) in test_loader: 
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            nll_loss = F.cross_entropy(outputs, labels, reduction="mean")
+            pred = outputs.argmax(dim=1, keepdim=True)
+            correct += pred.eq(labels.view_as(pred)).sum().item()
+            wandb.log({"testing_nll_loss": nll_loss.item()})
+
+    accuracy = 100. * correct / total
+    wandb.log({"testing_accuracy": accuracy})
+    print(f"Accuracy on the test set: {accuracy}")
+
+
 def main():
     # Initialize W&B
     wandb.init(project='rank1-bnn-WR', mode="online")
@@ -179,7 +199,8 @@ def main():
         # Step the scheduler at the end of each epoch
         scheduler.step()
         print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
-        
+    
+    test_evaluate(model=model, device=device, test_loader=test_loader)
 
 if __name__ == '__main__':
    main()
