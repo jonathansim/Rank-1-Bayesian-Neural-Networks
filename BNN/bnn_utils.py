@@ -39,7 +39,7 @@ def elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_ep
     # Total ELBO loss
     total_loss = nll_loss + kl_loss + weight_decay * l2_reg
 
-    return total_loss, nll_loss, kl_loss
+    return total_loss, nll_loss, kl_loss, kl_div
 
 
 

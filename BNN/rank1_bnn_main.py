@@ -67,7 +67,7 @@ def train(model,
         optimizer.zero_grad()
         output = model(data)
         batch_counter += 1
-        loss, nll_loss, kl_loss = elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_epochs, num_training_samples, weight_decay)
+        loss, nll_loss, kl_loss, kl_div = elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_epochs, num_training_samples, weight_decay)
         loss.backward()
 
         # Clip gradients to prevent explosion
@@ -91,7 +91,7 @@ def train(model,
         # if (batch_idx + 1) % 20 == 0:
         #     wandb.log({"loss": running_loss/20, "nll_loss": running_nll/20, "kl_div": running_kl/20})
         #     running_loss, running_nll, running_kl = 0, 0, 0
-        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), "batch_count": batch_counter})
+        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), "batch_count": batch_counter, "kl_div_unscaled": kl_div.item()})
         
     train_accuracy = 100 * correct / total
     current_lr = optimizer.param_groups[0]['lr']
