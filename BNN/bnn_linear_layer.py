@@ -27,7 +27,7 @@ class Rank1BayesianLinear(nn.Module):
         self.v_rho = nn.Parameter(torch.Tensor(1, in_features).uniform_(-5, -4))
           
         # Prior distributions
-        self.weight_prior = Normal(0, 1)
+        self.weight_prior = Normal(1.0, 0.1)
 
     def forward(self, x):
         # Convert rho parameters to standard deviations using softplus
