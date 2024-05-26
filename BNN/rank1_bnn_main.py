@@ -201,6 +201,7 @@ def main():
         print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
     
     test_evaluate(model=model, device=device, test_loader=test_loader)
+    test_evaluate(model=model, device=device, test_loader=test_loader)
 
 if __name__ == '__main__':
    main()
