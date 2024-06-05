@@ -100,8 +100,8 @@ class Rank1BayesianConv2d(nn.Module):
         if self.first_layer:
             # Repeat the input for each ensemble member
             # print("First layer check activated")
-            # x = torch.cat([x for i in range(self.ensemble_size)], dim=0)
-            x = x.repeat(self.ensemble_size, 1)
+            x = torch.cat([x for i in range(self.ensemble_size)], dim=0)
+            # x = x.repeat(self.ensemble_size, 1)
             
         # print(f"The shape of the input after the 'first layer' check is {x.shape}")
 
