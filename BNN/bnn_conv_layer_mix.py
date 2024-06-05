@@ -120,16 +120,19 @@ class Rank1BayesianConv2d(nn.Module):
             u_sample = Cauchy(self.u, u_sigma).rsample()
             v_sample = Cauchy(self.v, v_sigma).rsample()
         
-        # U = u_sample.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
-        # U.unsqueeze_(-1).unsqueeze_(-1)
-        # V = v_sample.repeat(1, num_examples_per_ensemble).view(-1, self.in_features)
-        # V.unsqueeze_(-1).unsqueeze_(-1)
+        U = u_sample.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
+        U.unsqueeze_(-1).unsqueeze_(-1)
+        V = v_sample.repeat(1, num_examples_per_ensemble).view(-1, self.in_features)
+        V.unsqueeze_(-1).unsqueeze_(-1)
         
-        U = u_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features, 1, 1)
-        V = v_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.in_features, 1, 1)
+        # U = u_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features, 1, 1)
+        # V = v_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.in_features, 1, 1)
 
         if self.bias is not None:
-            bias = self.bias.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features, 1, 1)
+            # bias = self.bias.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features, 1, 1)
+            bias = self.bias.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
+            bias.unsqueeze_(-1).unsqueeze_(-1)
+
 
         # Apply linear transformation and add bias
         result = self.conv(x * V) * U
