@@ -25,19 +25,19 @@ from bnn_utils import elbo_loss
 parser = argparse.ArgumentParser(description='Rank-1 Bayesian Wide ResNet (on CIFAR 10)')
 
 # General arguments
-parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train')
+parser.add_argument('--epochs', type=int, default=250, help='number of epochs to train')
 parser.add_argument('--batch-size', type=int, default=128, help='input mini-batch size for training')
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
-parser.add_argument('--use-scheduler', default=False, type=bool, help="Whether to use a scheduler for the LR or not")
-parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a subset (for debugging locally) or all data")
-parser.add_argument('--wandb', default="disabled", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
+parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
+parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
+parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
 
 # Rank-1 Bayesian specific arguments
-parser.add_argument('--ensemble-size', default=2, type=int, help="Number of models in the ensemble")
+parser.add_argument('--ensemble-size', default=4, type=int, help="Number of models in the ensemble")
 parser.add_argument('--rank1-distribution', default="normal", type=str, choices=["normal", "cauchy"], help="Rank-1 distribution to use")
 parser.add_argument('--prior-mean', default=1.0, type=float, help="Mean for the prior distribution")
 parser.add_argument('--prior-stddev', default=0.1, type=float, help="Standard deviation for the prior distribution")
@@ -201,8 +201,8 @@ def main():
     num_batches = len(train_loader)
 
     # Choose either or of the below two options
-    kl_annealing_epochs = args.epochs * 2/3 
-    # kl_annealing_epochs = 200
+    # kl_annealing_epochs = args.epochs * 2/3 
+    kl_annealing_epochs = 200
 
     # print(f"Initial u: {model.conv1.u}")
     # print(f"Initial v: {model.conv1.v}")
