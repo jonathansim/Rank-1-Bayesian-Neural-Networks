@@ -115,18 +115,20 @@ def evaluate(model, device, test_loader, epoch=None, phase="Validation"):
     test_loss = 0
     correct = 0
     total = len(test_loader.dataset)
+    total_nll = 0
 
     with torch.no_grad():
         for (inputs, labels) in test_loader: 
             inputs, labels = inputs.to(device), labels.to(device)
             outputs = model(inputs)
-            nll_loss = F.cross_entropy(outputs, labels, reduction="mean")
+            nll_loss = F.cross_entropy(outputs, labels, reduction="sum")
+            total_nll += nll_loss.item()
             pred = outputs.argmax(dim=1, keepdim=True)
             correct += pred.eq(labels.view_as(pred)).sum().item()
-            wandb.log({"validation_nll_loss": nll_loss.item()})
-
+            
     accuracy = 100. * correct / total
-    wandb.log({"validation_accuracy": accuracy})
+    average_nll = total_nll / total
+    wandb.log({"validation_accuracy": accuracy, "validation_average_nll": average_nll})
 
 
 def test_evaluate(model, device, test_loader, epoch=None, phase="Testing"):
@@ -134,18 +136,21 @@ def test_evaluate(model, device, test_loader, epoch=None, phase="Testing"):
     test_loss = 0
     correct = 0
     total = len(test_loader.dataset)
+    total_nll = 0
 
     with torch.no_grad():
         for (inputs, labels) in test_loader: 
             inputs, labels = inputs.to(device), labels.to(device)
             outputs = model(inputs)
-            nll_loss = F.cross_entropy(outputs, labels, reduction="mean")
+            nll_loss = F.cross_entropy(outputs, labels, reduction="sum")
+            total_nll += nll_loss.item()
             pred = outputs.argmax(dim=1, keepdim=True)
             correct += pred.eq(labels.view_as(pred)).sum().item()
-            wandb.log({"testing_nll_loss": nll_loss.item()})
-
+    
     accuracy = 100. * correct / total
-    wandb.log({"testing_accuracy": accuracy})
+    average_nll = total_nll / total
+
+    wandb.log({"testing_accuracy": accuracy, "testing_average_nll": average_nll})
     print(f"Accuracy on the test set: {accuracy}")
 
 

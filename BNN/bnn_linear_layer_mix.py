@@ -107,11 +107,15 @@ class Rank1BayesianLinear(nn.Module):
         
         # U = torch.cat([u_sample for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.out_features])
         # V = torch.cat([v_sample for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.in_features])
-        U = u_sample.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
-        V = v_sample.repeat(1, num_examples_per_ensemble).view(-1, self.in_features)
+        # U = u_sample.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
+        # V = v_sample.repeat(1, num_examples_per_ensemble).view(-1, self.in_features)
+
+        U = u_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features)
+        V = v_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.in_features)
        
         # bias = torch.cat([self.bias for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.out_features])
-        bias = self.bias.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
+        # bias = self.bias.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
+        bias = self.bias.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features)
 
         # Apply linear transformation and add bias
         result = self.fc(x * V) * U
@@ -133,7 +137,7 @@ class Rank1BayesianLinear(nn.Module):
             v_posterior = Cauchy(self.v, v_sigma)
         
         # Compute KL divergence between the posteriors and the prior, sum and divide by ensemble size
-        kl_u = kl_divergence(u_posterior, self.weight_prior).sum() 
-        kl_v = kl_divergence(v_posterior, self.weight_prior).sum() 
+        kl_u = kl_divergence(u_posterior, self.weight_prior).sum() / self.ensemble_size
+        kl_v = kl_divergence(v_posterior, self.weight_prior).sum() / self.ensemble_size
         
         return kl_u + kl_v

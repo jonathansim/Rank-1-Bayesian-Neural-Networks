@@ -100,7 +100,8 @@ class Rank1BayesianConv2d(nn.Module):
         if self.first_layer:
             # Repeat the input for each ensemble member
             # print("First layer check activated")
-            x = torch.cat([x for i in range(self.ensemble_size)], dim=0)
+            # x = torch.cat([x for i in range(self.ensemble_size)], dim=0)
+            x = x.repeat(self.ensemble_size, 1)
             
         # print(f"The shape of the input after the 'first layer' check is {x.shape}")
 
@@ -119,15 +120,16 @@ class Rank1BayesianConv2d(nn.Module):
             u_sample = Cauchy(self.u, u_sigma).rsample()
             v_sample = Cauchy(self.v, v_sigma).rsample()
         
-
-        U = torch.cat([u_sample for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.out_features])
-        U.unsqueeze_(-1).unsqueeze_(-1)
-        V = torch.cat([v_sample for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.in_features])
-        V.unsqueeze_(-1).unsqueeze_(-1)
+        # U = u_sample.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
+        # U.unsqueeze_(-1).unsqueeze_(-1)
+        # V = v_sample.repeat(1, num_examples_per_ensemble).view(-1, self.in_features)
+        # V.unsqueeze_(-1).unsqueeze_(-1)
+        
+        U = u_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features, 1, 1)
+        V = v_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.in_features, 1, 1)
 
         if self.bias is not None:
-            bias = torch.cat([self.bias for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.out_features])
-            bias.unsqueeze_(-1).unsqueeze_(-1)
+            bias = self.bias.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features, 1, 1)
 
         # Apply linear transformation and add bias
         result = self.conv(x * V) * U
@@ -151,7 +153,7 @@ class Rank1BayesianConv2d(nn.Module):
             v_posterior = Cauchy(self.v, v_sigma)
         
         # Compute KL divergence between the posteriors and the prior, sum and divide by ensemble size
-        kl_u = kl_divergence(u_posterior, self.weight_prior).sum() 
-        kl_v = kl_divergence(v_posterior, self.weight_prior).sum() 
+        kl_u = kl_divergence(u_posterior, self.weight_prior).sum() / self.ensemble_size
+        kl_v = kl_divergence(v_posterior, self.weight_prior).sum() / self.ensemble_size
         
         return kl_u + kl_v
