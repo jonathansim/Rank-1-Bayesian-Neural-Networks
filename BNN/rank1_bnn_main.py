@@ -154,7 +154,7 @@ def main():
     # Parse arguments
     args = parser.parse_args()
     training_seed = args.seed
-    batch_size = args.batch_size
+    batch_size = args.batch_size // args.ensemble_size # Divide the batch size by the ensemble size (for memory reasons)
     mode_for_wandb = args.wandb
     if args.use_subset: 
         subset_size = 1000
