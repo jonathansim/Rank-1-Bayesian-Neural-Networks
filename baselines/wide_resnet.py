@@ -1,60 +1,74 @@
-# Importing packages 
-import math
 import torch
 import torch.nn as nn
-import torch.optim as optim
-import torchvision
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
-# Basic block structure
 class BasicBlock(nn.Module):
-    expansion = 1
-
-    def __init__(self, in_planes, planes, stride=1, dropout_rate=0.0):
+    def __init__(self, in_planes, out_planes, stride, dropRate=0.0):
         super(BasicBlock, self).__init__()
-        self.dropout_rate = dropout_rate
-        self.dropout = nn.Dropout(p=dropout_rate)
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
+        self.bn1 = nn.BatchNorm2d(in_planes)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.conv1 = nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_planes)
+        self.relu2 = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(out_planes, out_planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.droprate = dropRate
+        self.equalInOut = (in_planes == out_planes)
 
-        self.shortcut = nn.Sequential() # initializes empty seq. model - This setup is used when no modification is needed on the shortcut connection;
-        # that is, when the input dimension matches the output dimension and no downsampling is needed.
-        if stride != 1 or in_planes != self.expansion*planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
+        # If the number of input channels is not equal to the number of output channels, 
+        # then we need to use a 1x1 convolution to change the number of channels
+        if not self.equalInOut:
+            self.convShortcut = nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, padding=0, bias=False)
+        else:
+            self.convShortcut = None
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        if self.dropout_rate > 0:
-            out = self.dropout(out)
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
+        if not self.equalInOut:
+            x = self.relu1(self.bn1(x))
+        else:
+            out = self.relu1(self.bn1(x))
+        out = self.relu2(self.bn2(self.conv1(out if self.equalInOut else x)))
+        if self.droprate > 0:
+            out = F.dropout(out, p=self.droprate, training=self.training)
+        out = self.conv2(out)
+        return torch.add(x if self.equalInOut else self.convShortcut(x), out)
 
-# Wide ResNet class
+class NetworkBlock(nn.Module):
+    def __init__(self, nb_layers, in_planes, out_planes, block, stride, dropRate=0.0):
+        super(NetworkBlock, self).__init__()
+        self.layer = self._make_layer(block, in_planes, out_planes, nb_layers, stride, dropRate)
+
+    def _make_layer(self, block, in_planes, out_planes, nb_layers, stride, dropRate):
+        layers = []
+        for i in range(int(nb_layers)):
+            layers.append(block(i == 0 and in_planes or out_planes, out_planes, i == 0 and stride or 1, dropRate))
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.layer(x)
+
 class WideResNet(nn.Module):
-    def __init__(self, block=BasicBlock, depth=28, widen_factor=10, num_classes=10, dropRate=0.0):
+    def __init__(self, depth, num_classes, widen_factor=1, dropRate=0.0):
         super(WideResNet, self).__init__()
-        self.in_planes = 16
+        nChannels = [16, 16*widen_factor, 32*widen_factor, 64*widen_factor]
+        assert((depth - 4) % 6 == 0)
+        n = (depth - 4) / 6
+        block = BasicBlock
 
-        assert ((depth - 4) % 6 == 0), "Depth should be 6n+4"
-        n = (depth - 4) // 6
+        # Initial convolution
+        self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=1, padding=1, bias=False)
 
-        # k = widen_factor
-        num_blocks = [n, n, n]
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
-        self.layer1 = self._make_layer(block, 16*widen_factor, num_blocks[0], stride=1, dropout_rate=dropRate)
-        self.layer2 = self._make_layer(block, 32*widen_factor, num_blocks[1], stride=2, dropout_rate=dropRate)
-        self.layer3 = self._make_layer(block, 64*widen_factor, num_blocks[2], stride=2, dropout_rate=dropRate)
-        self.linear = nn.Linear(64*widen_factor*block.expansion, num_classes)
+        # Residual blocks
+        self.block1 = NetworkBlock(n, nChannels[0], nChannels[1], block, 1, dropRate)
+        self.block2 = NetworkBlock(n, nChannels[1], nChannels[2], block, 2, dropRate)
+        self.block3 = NetworkBlock(n, nChannels[2], nChannels[3], block, 2, dropRate)
 
+        # Final layers
+        self.bn1 = nn.BatchNorm2d(nChannels[3])
+        self.relu = nn.ReLU(inplace=True)
+        self.fc = nn.Linear(nChannels[3], num_classes)
+        self.nChannels = nChannels[3]
+
+        # Initialization
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
@@ -64,21 +78,13 @@ class WideResNet(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
-    def _make_layer(self, block, planes, num_blocks, stride, dropout_rate):
-        strides = [stride] + [1]*(num_blocks-1)
-        layers = []
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, stride, dropout_rate))
-            self.in_planes = planes * block.expansion
-        return nn.Sequential(*layers)
-
     def forward(self, x):
-        out = F.relu(self.conv1(x))
-        # out = self.conv1(x)
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
+        out = self.conv1(x)
+        out = self.block1(out)
+        out = self.block2(out)
+        out = self.block3(out)
+        out = self.relu(self.bn1(out))
         out = F.avg_pool2d(out, 8)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
+        out = out.view(-1, self.nChannels)
+        return self.fc(out)
+

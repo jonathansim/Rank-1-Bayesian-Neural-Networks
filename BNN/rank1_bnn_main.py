@@ -15,6 +15,7 @@ from datetime import datetime
 import random
 import wandb
 
+
 from rank1_wide_resnet import Rank1Bayesian_WideResNet
 from data_utils import load_data
 from bnn_utils import elbo_loss
@@ -23,6 +24,7 @@ from bnn_utils import elbo_loss
 # Add parsing functionality 
 parser = argparse.ArgumentParser(description='Rank-1 Bayesian Wide ResNet (on CIFAR 10)')
 
+# General arguments
 parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train')
 parser.add_argument('--batch-size', type=int, default=128, help='input mini-batch size for training')
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
@@ -30,9 +32,17 @@ parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
-parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
-parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
-# parser.add_argument('--wandb', default=True, type=bool, help="whether to track with weights and biases or not")
+parser.add_argument('--use-scheduler', default=False, type=bool, help="Whether to use a scheduler for the LR or not")
+parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a subset (for debugging locally) or all data")
+parser.add_argument('--wandb', default="disabled", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
+
+# Rank-1 Bayesian specific arguments
+parser.add_argument('--ensemble-size', default=2, type=int, help="Number of models in the ensemble")
+parser.add_argument('--rank1-distribution', default="normal", type=str, choices=["normal", "cauchy"], help="Rank-1 distribution to use")
+parser.add_argument('--prior-mean', default=1.0, type=float, help="Mean for the prior distribution")
+parser.add_argument('--prior-stddev', default=0.1, type=float, help="Standard deviation for the prior distribution")
+parser.add_argument('--mean-init-std', default=0.5, type=float, help="Standard deviation for the mean initialization")
+
 
 def set_training_seed(seed):
     # Function to set the different seeds 
@@ -140,20 +150,24 @@ def test_evaluate(model, device, test_loader, epoch=None, phase="Testing"):
 
 
 def main():
-    # Initialize W&B
-    wandb.init(project='rank1-bnn-WR', mode="online")
 
+    # Parse arguments
     args = parser.parse_args()
     training_seed = args.seed
     batch_size = args.batch_size
+    mode_for_wandb = args.wandb
     if args.use_subset: 
-        subset_size = 3000
+        subset_size = 1000
     else: 
         subset_size = None
     data_seed = 42 # seed used for data loading (e.g. transformations)
     print(f"Are we using a subset? {args.use_subset}")
     
     print(f"Total number of epochs {args.epochs}")
+
+    # Initialize W&B
+    wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb)
+
     # Set device
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -170,7 +184,10 @@ def main():
     set_training_seed(training_seed)
 
     # Model setup
-    model = Rank1Bayesian_WideResNet(depth=28, widen_factor=10, num_classes=10).to(device)
+    model = Rank1Bayesian_WideResNet(depth=28, widen_factor=10, num_classes=10, ensemble_size=args.ensemble_size, 
+                                     rank1_distribution=args.rank1_distribution, prior_mean=args.prior_mean, 
+                                     prior_stddev=args.prior_stddev, mean_init_std=args.mean_init_std).to(device)
+    
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, nesterov=args.nesterov)
 
     # Learning rate scheduler (if using one, otherwise None)
@@ -182,8 +199,10 @@ def main():
     
     batch_counter = 0
     num_batches = len(train_loader)
-    # kl_annealing_epochs = args.epochs * 2/3 
-    kl_annealing_epochs = 200
+
+    # Choose either or of the below two options
+    kl_annealing_epochs = args.epochs * 2/3 
+    # kl_annealing_epochs = 200
 
     # print(f"Initial u: {model.conv1.u}")
     # print(f"Initial v: {model.conv1.v}")
@@ -197,10 +216,10 @@ def main():
         evaluate(model=model, device=device, test_loader=val_loader)
 
         # Step the scheduler at the end of each epoch
-        scheduler.step()
-        print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
-    
-    test_evaluate(model=model, device=device, test_loader=test_loader)
+        if scheduler:
+            scheduler.step()
+            print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
+        
     test_evaluate(model=model, device=device, test_loader=test_loader)
 
 if __name__ == '__main__':

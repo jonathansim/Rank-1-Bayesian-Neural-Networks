@@ -14,7 +14,7 @@ import random
 import wandb 
 
 from wide_resnet import WideResNet
-# from wide_resnet_v2 import WideResNet
+
 from data_utils import load_data
 
 # Add parsing functionality 
@@ -29,6 +29,7 @@ parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='we
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
 parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a subset (for debugging locally) or all data")
+parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
 
 
 def set_training_seed(seed):
@@ -72,10 +73,14 @@ def train(model, device, train_loader, optimizer, criterion, epoch, scheduler=No
                   (epoch, batch_idx + 1, running_loss / 100)) # print epoch, batch_index and average loss over that mini-batch
             running_loss = 0.0
         
+        wandb.log({"loss":loss.item()})
+        
     # Store the epoch loss and accuracy
     average_epoch_loss = epoch_loss / num_batches
     train_accuracy = 100 * correct / total
     current_lr = optimizer.param_groups[0]['lr']
+
+    wandb.log({"epoch": epoch+1, "accuracy": train_accuracy, "lr": current_lr, "avg_epoch_loss": average_epoch_loss})
 
     results["epoch"] = epoch
     results["avg_epoch_loss"] = average_epoch_loss
@@ -124,15 +129,19 @@ def evaluate(model, test_loader, device, epoch=None, metrics=None, phase="Valida
     # print(f'Accuracy of this network is {results["accuracy"]}')
     # print(f'ECE of this network is {results["ece"]}')
     # print(f"The average NLL of this network is {results["average_nll"]}")
+
+    wandb.log({"validation_nll_loss": results["average_nll"], "validation_accuracy": results["accuracy"], "validation_ece": results["ece"]})
     print(f"{phase} Results: {results}")
     return results
 
 
 def main():
+
     # Parse arguments
     args = parser.parse_args()
     training_seed = args.seed
     batch_size = args.batch_size
+    mode_for_wandb = args.wandb
     if args.use_subset: 
         subset_size = 1000
     else: 
@@ -141,6 +150,10 @@ def main():
     print(f"Are we using a subset? {args.use_subset}")
     
     print(f"Total number of epochs {args.epochs}")
+
+    # Initialize W&B
+    wandb.init(project='deterministic-WR', mode=mode_for_wandb)
+
     # Set device
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -195,15 +208,17 @@ def main():
     filename_val = f'det_val_results_{current_time}.json'
     filename_test = f'det_test_results_{current_time}.json'
 
-    with open(filename_train, 'w') as file:
-        json.dump(all_train_results, file)
+    #### UNCOMMENT BELOW TO SAVE RESULTS TO JSON FILES!!! ####
+
+    # with open(filename_train, 'w') as file:
+    #     json.dump(all_train_results, file)
     
-    with open(filename_val, 'w') as file:
-        json.dump(all_val_results, file)
+    # with open(filename_val, 'w') as file:
+    #     json.dump(all_val_results, file)
     
-    if test_metrics is not None: 
-        with open(filename_test, 'w') as file:
-            json.dump(test_metrics, file)
+    # if test_metrics is not None: 
+    #     with open(filename_test, 'w') as file:
+    #         json.dump(test_metrics, file)
 
 if __name__ == '__main__':
    main()

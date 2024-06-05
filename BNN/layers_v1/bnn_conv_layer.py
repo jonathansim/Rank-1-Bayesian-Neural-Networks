@@ -6,7 +6,7 @@ from torch.distributions import Normal, kl_divergence
 from bnn_utils import he_normal
 
 class Rank1BayesianConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, use_bias=False):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, use_bias=False, ensemble_size=1):
         super(Rank1BayesianConv2d, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -23,6 +23,7 @@ class Rank1BayesianConv2d(nn.Module):
             self.bias = nn.Parameter(torch.zeros(out_channels))  # Initialize bias to zeros
         else:
             self.register_parameter('bias', None)
+        
         # Rank-1 perturbation parameters
         self.u = nn.Parameter(torch.Tensor(out_channels, 1, 1, 1).normal_(mean=1.0, std=0.5))
         self.v = nn.Parameter(torch.Tensor(1, in_channels, kernel_size, kernel_size).normal_(mean=1.0, std=0.5))

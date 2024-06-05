@@ -4,4 +4,6 @@ hpc_jobscript_det.sh
 wandb/
 TODO
 __pycache__/
-*.pyc
+testing_and_sandbox/
+hpc_jobscript_det.sh
+
