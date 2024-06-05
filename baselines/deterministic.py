@@ -28,7 +28,7 @@ parser.add_argument('--nesterov', default=True, type=bool, help='nesterov moment
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
-parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a subset (for debugging locally) or all data")
+parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
 parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
 
 
@@ -179,7 +179,7 @@ def main():
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, nesterov=args.nesterov, weight_decay=args.weight_decay)
 
     # Learning rate scheduler (if using one, otherwise None)
     scheduler = None
