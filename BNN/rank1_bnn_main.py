@@ -171,7 +171,8 @@ def main():
     print(f"Total number of epochs {args.epochs}")
 
     # Initialize W&B
-    wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb)
+    run_name = f"run_ensemble_size_{args.ensemble_size}"
+    wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
 
     # Set device
     if torch.cuda.is_available():
