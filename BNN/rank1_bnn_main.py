@@ -171,7 +171,7 @@ def main():
     print(f"Total number of epochs {args.epochs}")
 
     # Initialize W&B
-    run_name = f"run_ensemble_size_{args.ensemble_size}"
+    run_name = f"run_ensemble_size_{args.ensemble_size}_noKL_divison" #noKL_division meaning that we do not divide the KL terms by the num of mixture components
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
 
     # Set device

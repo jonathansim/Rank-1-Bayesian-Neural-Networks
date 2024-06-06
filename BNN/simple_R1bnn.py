@@ -54,7 +54,7 @@ train_dataset = datasets.CIFAR10('./data', train=True, download=True, transform=
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
 # Initialize the model, optimizer, and loss function
-model = SimpleBNN(ensemble_size=4, rank1_distribution='normal', prior_mean=1, prior_stddev=0.1, mean_init_std=0.5)
+model = SimpleBNN(ensemble_size=2, rank1_distribution='normal', prior_mean=1, prior_stddev=0.1, mean_init_std=0.5)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 # total_params = sum(p.numel() for p in model.parameters())
 # print(f"Number of parameters: {total_params}")
@@ -73,7 +73,7 @@ def train(model, optimizer, train_loader, epochs=1, weight_decay=1e-4):
             optimizer.zero_grad()
             
             output = model(data)
-            loss, nll_loss, kl_loss, _ = elbo_loss(output, target, model, batch_counter=batch_counter, num_batches=num_batches, 
+            loss, nll_loss, kl_loss, kl_div = elbo_loss(output, target, model, batch_counter=batch_counter, num_batches=num_batches, 
                                                 kl_annealing_epochs=13, num_data_samples=num_training_samples, weight_decay=weight_decay)
             loss.backward()
             optimizer.step()
@@ -82,7 +82,8 @@ def train(model, optimizer, train_loader, epochs=1, weight_decay=1e-4):
             running_loss += loss.item()
             
             if batch_idx % 100 == 0:
-                print(f'Epoch [{epoch + 1}/{epochs}], Step [{batch_idx}/{len(train_loader)}], Loss: {loss.item():.4f}, KL: {kl_loss.item():.4f}, NLL: {nll_loss.item():.4f}')
+                print(f'Epoch [{epoch + 1}/{epochs}], Step [{batch_idx}/{len(train_loader)}], Loss: {loss.item():.4f}, KL: {kl_loss.item():.4f}, NLL: {nll_loss.item():.4f}, KL div: {kl_div.item():.4f}')
+
         
         print(f'Epoch [{epoch + 1}/{epochs}], Average Loss: {running_loss / len(train_loader.dataset):.4f}')
     print(f"The batchcounter is at: {batch_counter}")
