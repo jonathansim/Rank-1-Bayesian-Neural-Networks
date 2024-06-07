@@ -7,4 +7,4 @@ __pycache__/
 testing_and_sandbox/
 hpc_jobscript_det.sh
 .DS_Store
-
+BNN/lr_scheduler_test.py

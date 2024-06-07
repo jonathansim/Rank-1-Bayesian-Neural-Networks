@@ -18,7 +18,7 @@ import wandb
 
 from rank1_wide_resnet import Rank1Bayesian_WideResNet
 from data_utils import load_data
-from bnn_utils import elbo_loss
+from bnn_utils import elbo_loss, WarmUpPiecewiseConstantSchedule
 
 
 # Add parsing functionality 
@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser(description='Rank-1 Bayesian Wide ResNet (on CI
 
 # General arguments
 parser.add_argument('--epochs', type=int, default=250, help='number of epochs to train')
-parser.add_argument('--batch-size', type=int, default=128, help='input mini-batch size for training')
+parser.add_argument('--batch-size', type=int, default=256, help='input mini-batch size for training')
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
@@ -37,7 +37,7 @@ parser.add_argument('--use-subset', default=False, type=bool, help="whether to u
 parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
 
 # Rank-1 Bayesian specific arguments
-parser.add_argument('--ensemble-size', default=4, type=int, help="Number of models in the ensemble")
+parser.add_argument('--ensemble-size', default=1, type=int, help="Number of models in the ensemble")
 parser.add_argument('--rank1-distribution', default="normal", type=str, choices=["normal", "cauchy"], help="Rank-1 distribution to use")
 parser.add_argument('--prior-mean', default=1.0, type=float, help="Mean for the prior distribution")
 parser.add_argument('--prior-stddev', default=0.1, type=float, help="Standard deviation for the prior distribution")
@@ -64,7 +64,6 @@ def train(model,
 
     print('\nEpoch: %d' % epoch)
     model.train()
-    # running_loss, running_nll, running_kl = 0, 0, 0
     correct = 0
     total = 0
     num_batches = num_batches
@@ -86,26 +85,22 @@ def train(model,
         optimizer.step()
 
         # Use LR scheduler 
-        # (Below code only if using e.g. cosine-annealing!! - not MultiStepLR, where it should be put later)
-        # if scheduler:
-        #     scheduler.step()
-
-        # running_loss += loss.item()
-        # running_nll += nll_loss.item()
-        # running_kl += kl_loss.item()
+        # (Below code only if using custom-made WUPCS scheduler or cosine-annealing!! - not MultiStepLR, where it should be put later)
+        if scheduler:
+            scheduler.step()
+            # print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
 
         _, predicted = output.max(1)
         total += target.size(0)
         correct += predicted.eq(target).sum().item()
         
-        # if (batch_idx + 1) % 20 == 0:
-        #     wandb.log({"loss": running_loss/20, "nll_loss": running_nll/20, "kl_div": running_kl/20})
-        #     running_loss, running_nll, running_kl = 0, 0, 0
-        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), "batch_count": batch_counter, "kl_div_unscaled": kl_div.item()})
+        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), 
+                   "batch_count": batch_counter, "kl_div_unscaled": kl_div.item(), "lr": optimizer.param_groups[0]['lr']})
         
     train_accuracy = 100 * correct / total
-    current_lr = optimizer.param_groups[0]['lr']
-    wandb.log({"epoch": epoch+1, "accuracy": train_accuracy, "lr": current_lr})
+    # current_lr = optimizer.param_groups[0]['lr']
+    wandb.log({"epoch": epoch+1, "accuracy": train_accuracy})
+
 
     return batch_counter
 
@@ -171,7 +166,11 @@ def main():
     print(f"Total number of epochs {args.epochs}")
 
     # Initialize W&B
-    run_name = f"run_ensemble_size_{args.ensemble_size}_256batch" #noKL_division meaning that we do not divide the KL terms by the num of mixture components
+    if args.use_subset:
+        run_name = f"TestRun_LearningRate"
+    else:
+        run_name = f"run_mix_size_{args.ensemble_size}_256batch_new_scheduler" 
+
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
 
     # Set device
@@ -201,7 +200,9 @@ def main():
     if args.use_scheduler:
         print("Now using a scheduler for the LR!!")
         # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.2)
+        # scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.2)
+        scheduler = WarmUpPiecewiseConstantSchedule(optimizer=optimizer, steps_per_epoch=len(train_loader), base_lr=args.lr, 
+                                                    lr_decay_ratio=0.2, lr_decay_epochs=[80, 160, 180], warmup_epochs=1)
     
     batch_counter = 0
     num_batches = len(train_loader)
@@ -210,10 +211,6 @@ def main():
     # kl_annealing_epochs = args.epochs * 2/3 
     kl_annealing_epochs = 200
 
-    # print(f"Initial u: {model.conv1.u}")
-    # print(f"Initial v: {model.conv1.v}")
-    # print(f"Initial u_rho: {model.conv1.u_rho}")
-    # print(f"Initial v_rho: {model.conv1.v_rho}")
 
     # # Training
     for epoch in range(args.epochs):
@@ -221,10 +218,10 @@ def main():
               batch_counter=batch_counter, num_batches=num_batches, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
         evaluate(model=model, device=device, test_loader=val_loader)
 
-        # Step the scheduler at the end of each epoch
-        if scheduler:
-            scheduler.step()
-            print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
+        # Step the scheduler at the end of each epoch (only if using MultiStepLR, otherwise put in batch loop)
+        # if scheduler:
+        #     scheduler.step()
+        #     print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
         
     test_evaluate(model=model, device=device, test_loader=test_loader)
 
