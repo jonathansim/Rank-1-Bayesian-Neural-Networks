@@ -87,7 +87,7 @@ def train(model,
                 total_norm += param_norm.item() ** 2
         total_norm = total_norm ** (1. / 2)
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=4.0)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=3.0)
 
         optimizer.step()
 
@@ -176,7 +176,7 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"run_mixsize_{args.ensemble_size}_128batch_new_scheduler_4normGradClip" 
+        run_name = f"run_mixsize_{args.ensemble_size}_128batch_new_scheduler_3normGradClip" 
 
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
 
