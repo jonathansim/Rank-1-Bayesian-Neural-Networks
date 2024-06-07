@@ -16,6 +16,7 @@ import wandb
 from wide_resnet import WideResNet
 
 from data_utils import load_data
+from custom_scheduler import WarmUpPiecewiseConstantSchedule
 
 # Add parsing functionality 
 parser = argparse.ArgumentParser(description='Deterministic Wide ResNet (on CIFAR 10)')
@@ -185,7 +186,9 @@ def main():
     scheduler = None
     if args.use_scheduler:
         print("Now using a scheduler for the LR!!")
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+        # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+        scheduler = WarmUpPiecewiseConstantSchedule(optimizer=optimizer, steps_per_epoch=len(train_loader), base_lr=args.lr, 
+                                                    lr_decay_ratio=0.2, lr_decay_epochs=[60, 120, 160], warmup_epochs=1)
 
     # Results for each epoch
     all_train_results = []

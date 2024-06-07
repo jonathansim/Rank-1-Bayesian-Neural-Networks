@@ -79,8 +79,15 @@ def train(model,
         loss, nll_loss, kl_loss, kl_div = elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_epochs, num_training_samples, weight_decay)
         loss.backward()
 
-        # Clip gradients to prevent explosion
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0)
+        # Monitor and log gradient norms and afterwards clip gradients to prevent explosion
+        total_norm = 0
+        for p in model.parameters():
+            if p.grad is not None:
+                param_norm = p.grad.data.norm(2)
+                total_norm += param_norm.item() ** 2
+        total_norm = total_norm ** (1. / 2)
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=4.0)
 
         optimizer.step()
 
@@ -94,8 +101,8 @@ def train(model,
         total += target.size(0)
         correct += predicted.eq(target).sum().item()
         
-        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), 
-                   "batch_count": batch_counter, "kl_div_unscaled": kl_div.item(), "lr": optimizer.param_groups[0]['lr']})
+        wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), "batch_count": batch_counter, 
+                   "kl_div_unscaled": kl_div.item(), "lr": optimizer.param_groups[0]['lr'], "grad_norm": total_norm})
         
     train_accuracy = 100 * correct / total
     # current_lr = optimizer.param_groups[0]['lr']
@@ -169,7 +176,7 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"run_mix_size_{args.ensemble_size}_256batch_new_scheduler" 
+        run_name = f"run_mixsize_{args.ensemble_size}_256batch_new_scheduler_4normGradClip" 
 
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
 
