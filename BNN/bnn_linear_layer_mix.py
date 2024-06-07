@@ -43,12 +43,12 @@ class Rank1BayesianLinear(nn.Module):
         self.bias = nn.Parameter(torch.Tensor(ensemble_size, out_features))
         
         # Rank-1 perturbation parameters
-        self.u = nn.Parameter(torch.Tensor(ensemble_size, out_features))
-        self.v = nn.Parameter(torch.Tensor(ensemble_size, in_features))
+        self.r = nn.Parameter(torch.Tensor(ensemble_size, out_features))
+        self.s = nn.Parameter(torch.Tensor(ensemble_size, in_features))
         
         # Rank-1 perturbation log-standard-deviation parameters
-        self.u_rho = nn.Parameter(torch.Tensor(ensemble_size, out_features)) 
-        self.v_rho = nn.Parameter(torch.Tensor(ensemble_size, in_features))
+        self.r_rho = nn.Parameter(torch.Tensor(ensemble_size, out_features)) 
+        self.s_rho = nn.Parameter(torch.Tensor(ensemble_size, in_features))
           
 
         # Prior distributions and dropout rate initialization
@@ -68,76 +68,70 @@ class Rank1BayesianLinear(nn.Module):
         nn.init.zeros_(self.bias) # Initialize bias to zeros
 
         # Initialize rank-1 perturbation parameters (mean)
-        nn.init.normal_(self.u, mean=1.0, std=self.mean_init_std) 
-        nn.init.normal_(self.v, mean=1.0, std=self.mean_init_std) 
+        nn.init.normal_(self.r, mean=1.0, std=self.mean_init_std) 
+        nn.init.normal_(self.s, mean=1.0, std=self.mean_init_std) 
 
         stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
 
         # Initialize rank-1 log-std dev parameters
         if self.rank1_distribution == "normal":
-            nn.init.trunc_normal_(self.u_rho, mean=stddev_init, std=0.1, a=stddev_init-2*0.1, b=stddev_init+2*0.1) 
-            nn.init.trunc_normal_(self.v_rho, mean=stddev_init, std=0.1, a=stddev_init-2*0.1, b=stddev_init+2*0.1) 
+            nn.init.trunc_normal_(self.r_rho, mean=stddev_init, std=0.1, a=stddev_init-2*0.1, b=stddev_init+2*0.1) 
+            nn.init.trunc_normal_(self.s_rho, mean=stddev_init, std=0.1, a=stddev_init-2*0.1, b=stddev_init+2*0.1) 
         elif self.rank1_distribution == "cauchy":
-            nn.init.constant_(self.u_rho, stddev_init)
-            nn.init.constant_(self.v_rho, stddev_init)
+            nn.init.constant_(self.r_rho, stddev_init)
+            nn.init.constant_(self.s_rho, stddev_init)
 
     def forward(self, x):
 
         # print(f"The shape of the input in the beginning is {x.shape}")
         if self.first_layer:
             # Repeat the input for each ensemble member
-            # x = torch.cat([x for i in range(self.ensemble_size)], dim=0) 
-            x = x.repeat(self.ensemble_size, 1)
+            x = torch.cat([x for i in range(self.ensemble_size)], dim=0) 
         # print(f"The shape of the input after the first layer check is {x.shape}")
 
         # Number of examples per ensemble. Since we duplicate the input (for the first layer), this is just the batch size. 
         num_examples_per_ensemble = x.size(0) // self.ensemble_size
         
         # Convert rho parameters to standard deviations using softplus
-        u_sigma = torch.log1p(torch.exp(self.u_rho)) + 1e-6
-        v_sigma = torch.log1p(torch.exp(self.v_rho)) + 1e-6
+        r_sigma = torch.log1p(torch.exp(self.r_rho)) + 1e-6
+        s_sigma = torch.log1p(torch.exp(self.s_rho)) + 1e-6
         
         # Sample perturbations from the Gaussian or Cauchy distributions
         if self.rank1_distribution == "normal":
-            u_sample = Normal(self.u, u_sigma).rsample()
-            v_sample = Normal(self.v, v_sigma).rsample()
+            r_sample = Normal(self.r, r_sigma).rsample()
+            s_sample = Normal(self.s, s_sigma).rsample()
         elif self.rank1_distribution == "cauchy":
-            u_sample = Cauchy(self.u, u_sigma).rsample()
-            v_sample = Cauchy(self.v, v_sigma).rsample()
+            r_sample = Cauchy(self.r, r_sigma).rsample()
+            s_sample = Cauchy(self.s, s_sigma).rsample()
         
-        # U = torch.cat([u_sample for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.out_features])
-        # V = torch.cat([v_sample for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.in_features])
-        U = u_sample.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
-        V = v_sample.repeat(1, num_examples_per_ensemble).view(-1, self.in_features)
-
-        # U = u_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features)
-        # V = v_sample.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.in_features)
+ 
+        R = r_sample.repeat(1, num_examples_per_ensemble).view(-1, self.out_features) # TODO Maybe repeat_interleave is faster?
+        S = s_sample.repeat(1, num_examples_per_ensemble).view(-1, self.in_features)
        
-        # bias = torch.cat([self.bias for _ in range(num_examples_per_ensemble)], dim=1).view([-1, self.out_features])
         bias = self.bias.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
-        # bias = self.bias.repeat_interleave(num_examples_per_ensemble, dim=0).view(-1, self.out_features)
+
 
         # Apply linear transformation and add bias
-        result = self.fc(x * V) * U
+        result = self.fc(x * S) * R
         result += bias
 
         return result
 
     def kl_divergence(self):
         # Convert rho parameters to standard deviations using softplus
-        u_sigma = torch.log1p(torch.exp(self.u_rho)) + 1e-6
-        v_sigma = torch.log1p(torch.exp(self.v_rho)) + 1e-6
+        r_sigma = torch.log1p(torch.exp(self.r_rho)) + 1e-6
+        s_sigma = torch.log1p(torch.exp(self.s_rho)) + 1e-6
         
         # Sample perturbations from the Gaussian or Cauchy distributions
         if self.rank1_distribution == "normal":
-            u_posterior = Normal(self.u, u_sigma)
-            v_posterior = Normal(self.v, v_sigma)
+            r_posterior = Normal(self.r, r_sigma)
+            s_posterior = Normal(self.s, s_sigma)
         elif self.rank1_distribution == "cauchy":
-            u_posterior = Cauchy(self.u, u_sigma)
-            v_posterior = Cauchy(self.v, v_sigma)
+            r_posterior = Cauchy(self.r, r_sigma)
+            s_posterior = Cauchy(self.s, s_sigma)
         
         # Compute KL divergence between the posteriors and the prior, sum and divide by ensemble size
-        kl_u = kl_divergence(u_posterior, self.weight_prior).sum() # / self.ensemble_size
-        kl_v = kl_divergence(v_posterior, self.weight_prior).sum() # / self.ensemble_size
+        kl_r = kl_divergence(r_posterior, self.weight_prior).sum() / self.ensemble_size
+        kl_s = kl_divergence(s_posterior, self.weight_prior).sum() / self.ensemble_size
         
-        return kl_u + kl_v
+        return kl_r + kl_s
