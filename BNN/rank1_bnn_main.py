@@ -32,9 +32,11 @@ parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
-parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
 parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
 parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
+parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
+parser.add_argument('--warmup-epochs', default=5, type=int, help="Number of warmup epochs")
+parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"], help="which optimizer to use")
 
 # Rank-1 Bayesian specific arguments
 parser.add_argument('--ensemble-size', default=1, type=int, help="Number of models in the ensemble")
@@ -177,9 +179,12 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"run_mix_{args.ensemble_size}_{batch_size}_batch_NoGradClip_CosAnneal" 
-
+        run_name = f"run_M{args.ensemble_size}_B{batch_size}_S-{args.scheduler}_W{args.warmup_epochs}_NoGradClip" # M for ensemble size, B for batch size, S for scheduler
+    
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
+    
+    # Log the arguments to Weights and Biases
+    wandb.config.update(args)
 
     # Set device
     if torch.cuda.is_available():
@@ -201,16 +206,24 @@ def main():
                                      rank1_distribution=args.rank1_distribution, prior_mean=args.prior_mean, 
                                      prior_stddev=args.prior_stddev, mean_init_std=args.mean_init_std).to(device)
     
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, nesterov=args.nesterov)
+    # Optimizer
+    if args.optimizer == "sgd":
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, nesterov=args.nesterov)
+    elif args.optimizer == "adam":
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # Learning rate scheduler (if using one, otherwise None)
-    scheduler = None
-    if args.use_scheduler:
-        print("Now using a scheduler for the LR!!")
+    print(f"Using the following scheduler: {args.scheduler}")
+    if args.scheduler == "warm":
+        scheduler = WarmUpPiecewiseConstantSchedule(optimizer=optimizer, steps_per_epoch=len(train_loader), base_lr=args.lr, 
+                                                    lr_decay_ratio=0.2, lr_decay_epochs=[80, 160, 180], warmup_epochs=args.warmup_epochs)
+    elif args.scheduler == "cosine":
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
-        # scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.2)
-        # scheduler = WarmUpPiecewiseConstantSchedule(optimizer=optimizer, steps_per_epoch=len(train_loader), base_lr=args.lr, lr_decay_ratio=0.2, lr_decay_epochs=[80, 160, 180], warmup_epochs=1)
-    
+    elif args.scheduler == "multistep":
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.2)
+    elif args.scheduler == "none":
+        scheduler = None
+
     batch_counter = 0
     num_batches = len(train_loader)
 
@@ -226,10 +239,9 @@ def main():
         
         evaluate(model=model, device=device, test_loader=val_loader)
 
-        # Step the scheduler at the end of each epoch (only if using MultiStepLR, otherwise put in batch loop)
-        # if scheduler:
-        #     scheduler.step()
-        #     print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
+        if args.scheduler == "multistep":
+            scheduler.step()
+            print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
         
     test_evaluate(model=model, device=device, test_loader=test_loader)
 
