@@ -153,7 +153,8 @@ def main():
     print(f"Total number of epochs {args.epochs}")
 
     # Initialize W&B
-    wandb.init(project='deterministic-WR', mode=mode_for_wandb)
+    run_name = f"B{batch_size}_weight_decay{args.weight_decay}"
+    wandb.init(project='deterministic-WR', mode=mode_for_wandb, name=run_name)
 
     # Set device
     if torch.cuda.is_available():

@@ -179,7 +179,8 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"run_M{args.ensemble_size}_B{batch_size}_S-{args.scheduler}_W{args.warmup_epochs}_NoGradClip" # M for ensemble size, B for batch size, S for scheduler
+        run_name = f"run_M{args.ensemble_size}_B{batch_size}_S-{args.scheduler}_W{args.warmup_epochs}_NoGradClip_WD_{args.weight_decay}" 
+        # M for ensemble size, B for batch size, S for scheduler
     
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
     
@@ -235,7 +236,7 @@ def main():
     # # Training
     for epoch in range(args.epochs):
         batch_counter = train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, epoch=epoch, 
-              batch_counter=batch_counter, num_batches=num_batches, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
+              batch_counter=batch_counter, num_batches=num_batches, weight_decay=args.weight_decay, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
         
         evaluate(model=model, device=device, test_loader=val_loader)
 
