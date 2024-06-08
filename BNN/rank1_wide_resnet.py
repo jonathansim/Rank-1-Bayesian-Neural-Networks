@@ -23,13 +23,13 @@ class BasicBlock(nn.Module):
                  dropRate=0.0):
         
         super(BasicBlock, self).__init__()
-        self.bn1 = nn.BatchNorm2d(in_planes, momentum=0.9, eps=1e-5)
+        self.bn1 = nn.BatchNorm2d(in_planes, momentum=0.1, eps=1e-5)
         self.relu1 = nn.ReLU(inplace=True)
         self.conv1 = Rank1BayesianConv2d(in_features=in_planes, out_features=out_planes, kernel_size=3, stride=stride, padding=1,
                                          use_bias=False, rank1_distribution=rank1_distribution, ensemble_size=ensemble_size, 
                                          prior_mean=prior_mean, prior_stddev=prior_stddev, mean_init_std=mean_init_std) 
         
-        self.bn2 = nn.BatchNorm2d(out_planes, momentum=0.9, eps=1e-5)
+        self.bn2 = nn.BatchNorm2d(out_planes, momentum=0.1, eps=1e-5)
         self.relu2 = nn.ReLU(inplace=True)
         self.conv2 = Rank1BayesianConv2d(in_features=out_planes, out_features=out_planes, kernel_size=3, stride=1, padding=1, 
                                          use_bias=False, rank1_distribution=rank1_distribution, ensemble_size=ensemble_size, 
@@ -106,7 +106,7 @@ class Rank1Bayesian_WideResNet(nn.Module):
         self.block3 = NetworkBlock(n, nChannels[2], nChannels[3], block, 2, rank1_distribution, ensemble_size, prior_mean, prior_stddev, mean_init_std, dropRate)
 
         # Final layers
-        self.bn1 = nn.BatchNorm2d(nChannels[3], momentum=0.9, eps=1e-5)
+        self.bn1 = nn.BatchNorm2d(nChannels[3], momentum=0.1, eps=1e-5)
         self.relu = nn.ReLU(inplace=True)
         self.fc = Rank1BayesianLinear(in_features=nChannels[3], out_features=num_classes, rank1_distribution=rank1_distribution, 
                                       ensemble_size=ensemble_size, prior_mean=prior_mean, prior_stddev=prior_stddev, mean_init_std=mean_init_std)
