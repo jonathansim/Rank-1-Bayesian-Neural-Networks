@@ -177,7 +177,7 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"run_mix_{args.ensemble_size}_{batch_size}_batch_NoGradClip" 
+        run_name = f"run_mix_{args.ensemble_size}_{batch_size}_batch_NoGradClip_CosAnneal" 
 
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
 
@@ -207,10 +207,9 @@ def main():
     scheduler = None
     if args.use_scheduler:
         print("Now using a scheduler for the LR!!")
-        # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
         # scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[80, 160, 180], gamma=0.2)
-        scheduler = WarmUpPiecewiseConstantSchedule(optimizer=optimizer, steps_per_epoch=len(train_loader), base_lr=args.lr, 
-                                                    lr_decay_ratio=0.2, lr_decay_epochs=[80, 160, 180], warmup_epochs=1)
+        # scheduler = WarmUpPiecewiseConstantSchedule(optimizer=optimizer, steps_per_epoch=len(train_loader), base_lr=args.lr, lr_decay_ratio=0.2, lr_decay_epochs=[80, 160, 180], warmup_epochs=1)
     
     batch_counter = 0
     num_batches = len(train_loader)
