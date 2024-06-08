@@ -45,7 +45,7 @@ def load_data(batch_size=128, seed=42, subset_size=None):
     train_indices = np.load('./data/cifar10_train_indices.npy')
     val_indices = np.load('./data/cifar10_val_indices.npy')
 
-    # Optionally create subsets
+    # Optionally create subsets for local debugging
     if subset_size is not None:
         train_indices = np.random.choice(train_indices, subset_size, replace=False)
         val_indices = np.random.choice(val_indices, int(subset_size/2), replace=False)

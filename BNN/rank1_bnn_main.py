@@ -30,7 +30,7 @@ parser.add_argument('--batch-size', type=int, default=256, help='input mini-batc
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
-parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
+parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
 parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
@@ -87,7 +87,8 @@ def train(model,
                 total_norm += param_norm.item() ** 2
         total_norm = total_norm ** (1. / 2)
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0)
+        # Gradient clipping!!!
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0)
 
         optimizer.step()
 
@@ -176,7 +177,7 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"run_mixsize_{args.ensemble_size}_128batch_new_scheduler_2normGradClip" 
+        run_name = f"run_mix_{args.ensemble_size}_{batch_size}_batch_NoGradClip" 
 
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
 
@@ -223,6 +224,7 @@ def main():
     for epoch in range(args.epochs):
         batch_counter = train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, epoch=epoch, 
               batch_counter=batch_counter, num_batches=num_batches, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
+        
         evaluate(model=model, device=device, test_loader=val_loader)
 
         # Step the scheduler at the end of each epoch (only if using MultiStepLR, otherwise put in batch loop)
