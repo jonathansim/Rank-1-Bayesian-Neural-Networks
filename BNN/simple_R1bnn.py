@@ -36,8 +36,7 @@ class SimpleBNN(nn.Module):
         x = F.relu(self.bn3(self.fc2(x)))
         x = self.fc3(x)
         # print(f"Shape of x: {x.shape}")
-        # Average over the ensemble
-        mean_out = x.view(self.ensemble_size, batch_size, -1).mean(dim=0)
+        return x
         # print(f"Shape of mean_out: {mean_out.shape}")
         return mean_out
     
@@ -52,9 +51,10 @@ class SimpleBNN(nn.Module):
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
 train_dataset = datasets.CIFAR10('./data', train=True, download=True, transform=transform)
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+print(f"The batch size is: {train_loader.batch_size}")
 
 # Initialize the model, optimizer, and loss function
-model = SimpleBNN(ensemble_size=2, rank1_distribution='normal', prior_mean=1, prior_stddev=0.1, mean_init_std=0.5)
+model = SimpleBNN(ensemble_size=3, rank1_distribution='normal', prior_mean=1, prior_stddev=0.1, mean_init_std=0.5)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 # total_params = sum(p.numel() for p in model.parameters())
 # print(f"Number of parameters: {total_params}")
@@ -72,7 +72,11 @@ def train(model, optimizer, train_loader, epochs=1, weight_decay=1e-4):
             # print(f"Batch number: {batch_idx}")
             optimizer.zero_grad()
             
+            #print(f"Shape of target first: {target.shape}")
             output = model(data)
+            target = target.repeat(model.ensemble_size)
+            #print(f"Shape of target now: {target.shape}")
+            #print(f"Shape of output: {output.shape}")
             loss, nll_loss, kl_loss, kl_div = elbo_loss(output, target, model, batch_counter=batch_counter, num_batches=num_batches, 
                                                 kl_annealing_epochs=13, num_data_samples=num_training_samples, weight_decay=weight_decay)
             loss.backward()

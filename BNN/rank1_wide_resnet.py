@@ -130,6 +130,15 @@ class Rank1Bayesian_WideResNet(nn.Module):
         out = out.view(-1, self.nChannels)
         out = self.fc(out)
 
+        # if not self.training:
+        #     out = out.view(self.ensemble_size, batch_size, -1)
+        #     out = out.permute(1, 2, 0)
+
+        #     return out # TODO Change this to incorporate log mixture likelihood
+
+        return out # For training, return the output directly
+        
+
         # Average over ensemble members
         mean_out = out.view(self.ensemble_size, batch_size, -1).mean(dim=0)
         return mean_out

@@ -2,7 +2,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchmetrics.classification
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Subset
@@ -10,6 +9,7 @@ import torch.nn.functional as F
 import argparse
 import numpy as np
 import torchmetrics
+from torchmetrics.classification import CalibrationError
 import json 
 from datetime import datetime
 import random
@@ -18,7 +18,7 @@ import wandb
 
 from rank1_wide_resnet import Rank1Bayesian_WideResNet
 from data_utils import load_data
-from bnn_utils import elbo_loss, WarmUpPiecewiseConstantSchedule
+from bnn_utils import elbo_loss, WarmUpPiecewiseConstantSchedule, compute_ece
 
 
 # Add parsing functionality 
@@ -39,11 +39,12 @@ parser.add_argument('--warmup-epochs', default=5, type=int, help="Number of warm
 parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"], help="which optimizer to use")
 
 # Rank-1 Bayesian specific arguments
-parser.add_argument('--ensemble-size', default=1, type=int, help="Number of models in the ensemble")
+parser.add_argument('--ensemble-size', default=2, type=int, help="Number of models in the ensemble")
 parser.add_argument('--rank1-distribution', default="normal", type=str, choices=["normal", "cauchy"], help="Rank-1 distribution to use")
 parser.add_argument('--prior-mean', default=1.0, type=float, help="Mean for the prior distribution")
 parser.add_argument('--prior-stddev', default=0.1, type=float, help="Standard deviation for the prior distribution")
 parser.add_argument('--mean-init-std', default=0.5, type=float, help="Standard deviation for the mean initialization")
+parser.add_argument('--num-eval-samples', default=1, type=int, help="Number of samples to use for evaluation")
 
 
 def set_training_seed(seed):
@@ -71,6 +72,8 @@ def train(model,
     num_batches = num_batches
     batch_counter = batch_counter
     num_training_samples = len(train_loader.dataset)
+    num_classes = 10 # CIFAR-10
+    # ece_metric = CalibrationError(n_bins=15, norm='l1', task="multiclass", num_classes=num_classes).to(device)
 
     for batch_idx, (data, target) in enumerate(train_loader):
         # print(batch_idx)
@@ -78,6 +81,11 @@ def train(model,
         optimizer.zero_grad()
         output = model(data)
         batch_counter += 1
+        
+        # Repeat the target for the ensemble size (to match the output size and utilize vectorized operations)
+        target = target.repeat(model.ensemble_size) 
+        
+        
         loss, nll_loss, kl_loss, kl_div = elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_epochs, num_training_samples, weight_decay)
         loss.backward()
 
@@ -115,48 +123,54 @@ def train(model,
     return batch_counter
 
 
-def evaluate(model, device, test_loader, epoch=None, phase="Validation"):
+def evaluate(model, device, test_loader, num_eval_samples, epoch=None, phase="validation"):
     model.eval()
-    test_loss = 0
     correct = 0
     total = len(test_loader.dataset)
+    batch_size = test_loader.batch_size
     total_nll = 0
+    num_classes = 10 # CIFAR-10
+    ece_metric = CalibrationError(n_bins=15, norm='l1', task="multiclass", num_classes=num_classes).to(device)
 
     with torch.no_grad():
         for (inputs, labels) in test_loader: 
             inputs, labels = inputs.to(device), labels.to(device)
-            outputs = model(inputs)
-            nll_loss = F.cross_entropy(outputs, labels, reduction="sum")
-            total_nll += nll_loss.item()
-            pred = outputs.argmax(dim=1, keepdim=True)
-            correct += pred.eq(labels.view_as(pred)).sum().item()
             
-    accuracy = 100. * correct / total
+            # Handle multiple samples
+            logits = torch.stack([model(inputs) for _ in range(num_eval_samples)], dim=2) # Shape: (batch_size*ensemble_size, num_classes, num_eval_samples)
+            logits = logits.view(model.ensemble_size, -1, num_classes, num_eval_samples) # Shape: (ensemble_size, batch_size, num_classes, num_eval_samples)
+            logits = logits.permute(1, 2, 0, 3) # Shape: (batch_size, num_classes, ensemble_size, num_eval_samples)
+            probs = torch.softmax(logits, dim=1)
+
+            # Duplicate labels
+            labels_expanded = labels.repeat(model.ensemble_size)
+            labels_expanded = labels_expanded.unsqueeze(-1).repeat(1, num_eval_samples) # Shape: (batch_size*ensemble_size, num_eval_samples)
+            labels_expanded = labels_expanded.view(-1, model.ensemble_size, num_eval_samples) # Shape: (batch_size, ensemble_size, num_eval_samples)
+
+            # Compute the log likelihoods
+            log_likelihoods = - F.cross_entropy(logits, labels_expanded, reduction="none") # Shape: (batch_size, ensemble_size, num_eval_samples)
+            logsumexp_temp = - torch.logsumexp(log_likelihoods, dim=(1, 2)) + math.log(model.ensemble_size * num_eval_samples) # Eq. 14 in the paper
+            
+            # Return the mean NLL across the batch 
+            nll = logsumexp_temp.mean() 
+            total_nll += nll.item()
+
+            # Average probs over ensemble_size and num_eval_samples, make predictions and compute accuracy
+            mean_probs = probs.mean(dim=(2, 3)) # Shape: (batch_size, num_classes)
+            preds = mean_probs.argmax(dim=1) 
+            correct += preds.eq(labels).sum().item()
+
+            # Compute ECE
+            ece_metric.update(mean_probs, labels)
+
+
     average_nll = total_nll / total
-    wandb.log({"validation_accuracy": accuracy, "validation_average_nll": average_nll})
-
-
-def test_evaluate(model, device, test_loader, epoch=None, phase="Testing"):
-    model.eval()
-    test_loss = 0
-    correct = 0
-    total = len(test_loader.dataset)
-    total_nll = 0
-
-    with torch.no_grad():
-        for (inputs, labels) in test_loader: 
-            inputs, labels = inputs.to(device), labels.to(device)
-            outputs = model(inputs)
-            nll_loss = F.cross_entropy(outputs, labels, reduction="sum")
-            total_nll += nll_loss.item()
-            pred = outputs.argmax(dim=1, keepdim=True)
-            correct += pred.eq(labels.view_as(pred)).sum().item()
+    accuracy = 100. * correct / total
+    ece = ece_metric.compute().item()
     
-    accuracy = 100. * correct / total
-    average_nll = total_nll / total
+    wandb.log({f"{phase}_average_nll": average_nll, f"{phase}_accuracy": accuracy, f"{phase}_ece": ece})
 
-    wandb.log({"testing_accuracy": accuracy, "testing_average_nll": average_nll})
-    print(f"Accuracy on the test set: {accuracy}")
+    return accuracy, average_nll, ece
 
 
 def main():
@@ -167,7 +181,7 @@ def main():
     batch_size = args.batch_size // args.ensemble_size # Divide the batch size by the ensemble size (for memory reasons)
     mode_for_wandb = args.wandb
     if args.use_subset: 
-        subset_size = 1000
+        subset_size = 32*10
     else: 
         subset_size = None
     data_seed = 42 # seed used for data loading (e.g. transformations)
@@ -179,7 +193,7 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"run_M{args.ensemble_size}_B{batch_size}_S-{args.scheduler}_W{args.warmup_epochs}_NoGradClip_WD_{args.weight_decay}_newBatchNorm" 
+        run_name = f"run_M{args.ensemble_size}_B{batch_size}_D{args.rank1_distribution}_NumSamp{args.num_eval_samples}" 
         # M for ensemble size, B for batch size, S for scheduler
     
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
@@ -238,13 +252,18 @@ def main():
         batch_counter = train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, epoch=epoch, 
               batch_counter=batch_counter, num_batches=num_batches, weight_decay=args.weight_decay, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
         
-        evaluate(model=model, device=device, test_loader=val_loader)
+        # old_evaluate(model=model, device=device, test_loader=val_loader)
+        _, _, _ = evaluate(model=model, device=device, test_loader=val_loader, num_eval_samples=args.num_eval_samples, phase="validation")
+        print("Done with evaluation")
 
         if args.scheduler == "multistep":
             scheduler.step()
             print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
         
-    test_evaluate(model=model, device=device, test_loader=test_loader)
+    # Testing
+    test_accuracy, test_nll, test_ece = evaluate(model=model, device=device, test_loader=test_loader, num_eval_samples=args.num_eval_samples, phase="testing")
+    print(f"Test accuracy: {test_accuracy}, Test NLL: {test_nll}, Test ECE: {test_ece}")
+    
 
 if __name__ == '__main__':
    main()

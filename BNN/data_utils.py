@@ -50,6 +50,7 @@ def load_data(batch_size=128, seed=42, subset_size=None):
         train_indices = np.random.choice(train_indices, subset_size, replace=False)
         val_indices = np.random.choice(val_indices, int(subset_size/2), replace=False)
         batch_size = 32
+
     
     # Create subsets
     train_subset = Subset(train_dataset, train_indices)
@@ -62,3 +63,5 @@ def load_data(batch_size=128, seed=42, subset_size=None):
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader, test_loader
+
+

@@ -83,3 +83,24 @@ class WarmUpPiecewiseConstantSchedule(_LRScheduler):
         self.last_epoch = epoch
         for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
             param_group['lr'] = lr
+
+
+
+def compute_ece(probs, labels, n_bins=15):
+    '''
+    Computes the Expected Calibration Error (ECE) of a model. 
+    '''
+    bin_boundaries = torch.linspace(0, 1, n_bins + 1)
+    ece = 0.0
+
+    for i in range(n_bins):
+        bin_lower, bin_upper = bin_boundaries[i], bin_boundaries[i + 1]
+        in_bin = (probs > bin_lower) * (probs <= bin_upper)
+        prop_in_bin = in_bin.float().mean().item()
+
+        if prop_in_bin > 0:
+            accuracy_in_bin = labels[in_bin].float().mean().item()
+            avg_confidence_in_bin = probs[in_bin].mean().item()
+            ece += abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
+
+    return ece
