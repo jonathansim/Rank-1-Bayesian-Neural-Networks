@@ -112,7 +112,8 @@ class Rank1Bayesian_WideResNet(nn.Module):
                                       ensemble_size=ensemble_size, prior_mean=prior_mean, prior_stddev=prior_stddev, mean_init_std=mean_init_std)
         self.nChannels = nChannels[3]
         self.ensemble_size = ensemble_size
-        
+        self.rank1_distribution = rank1_distribution
+
         # Initialization
         for m in self.modules():
             if isinstance(m, nn.BatchNorm2d):

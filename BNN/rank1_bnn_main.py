@@ -98,7 +98,8 @@ def train(model,
         total_norm = total_norm ** (1. / 2)
 
         # Gradient clipping!!!
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0)
+        if model.rank1_distribution == "cauchy":
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
 
         optimizer.step()
 
