@@ -101,6 +101,15 @@ def train(model,
         if model.rank1_distribution == "cauchy":
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
 
+            ### Track the gradient norm after clipping
+            total_norm_after = 0
+            for p in model.parameters():
+                if p.grad is not None:
+                    param_norm = p.grad.data.norm(2)
+                    total_norm_after += param_norm.item() ** 2
+            total_norm_after = total_norm_after ** (1. / 2)
+            wandb.log({"grad_norm_after": total_norm_after})
+
         optimizer.step()
 
         # Use LR scheduler 
