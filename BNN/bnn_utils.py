@@ -34,7 +34,7 @@ def elbo_loss(output, target, model, batch_counter, num_batches, kl_annealing_ep
     # L2 regularization 
     l2_reg = 0.0
     for name, param in model.named_parameters():
-        if "weight" in name:
+        if "weight" in name or "bias" in name:
             l2_reg += torch.sum(param ** 2)
 
     # Total ELBO loss

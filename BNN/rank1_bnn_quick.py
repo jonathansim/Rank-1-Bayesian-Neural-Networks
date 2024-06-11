@@ -25,17 +25,17 @@ from bnn_utils import elbo_loss, WarmUpPiecewiseConstantSchedule, compute_ece
 parser = argparse.ArgumentParser(description='Rank-1 Bayesian Wide ResNet (on CIFAR 10)')
 
 # General arguments
-parser.add_argument('--epochs', type=int, default=250, help='number of epochs to train')
+parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train')
 parser.add_argument('--batch-size', type=int, default=256, help='input mini-batch size for training')
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
-parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
-parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
+parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a subset (for debugging locally) or all data")
+parser.add_argument('--wandb', default="disabled", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
 parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
-parser.add_argument('--warmup-epochs', default=5, type=int, help="Number of warmup epochs")
+parser.add_argument('--warmup-epochs', default=1, type=int, help="Number of warmup epochs")
 parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"], help="which optimizer to use")
 
 # Rank-1 Bayesian specific arguments
@@ -44,7 +44,7 @@ parser.add_argument('--rank1-distribution', default="normal", type=str, choices=
 parser.add_argument('--prior-mean', default=1.0, type=float, help="Mean for the prior distribution")
 parser.add_argument('--prior-stddev', default=0.1, type=float, help="Standard deviation for the prior distribution")
 parser.add_argument('--mean-init-std', default=0.5, type=float, help="Standard deviation for the mean initialization")
-parser.add_argument('--num-eval-samples', default=1, type=int, help="Number of samples to use for evaluation")
+parser.add_argument('--num-eval-samples', default=4, type=int, help="Number of samples to use for evaluation")
 
 
 def set_training_seed(seed):
@@ -152,19 +152,26 @@ def evaluate(model, device, test_loader, num_eval_samples, epoch=None, phase="va
             logits = logits.permute(1, 2, 0, 3) # Shape: (batch_size, num_classes, ensemble_size, num_eval_samples)
             probs = torch.softmax(logits, dim=1)
 
-            # Duplicate labels for the ensemble size and num_eval_samples
+            # Duplicate labels
+            # labels_expanded = labels.repeat(model.ensemble_size)
+            # labels_expanded = labels_expanded.unsqueeze(-1).repeat(1, num_eval_samples) # Shape: (batch_size*ensemble_size, num_eval_samples)
+            # labels_expanded = labels_expanded.view(-1, model.ensemble_size, num_eval_samples) # Shape: (batch_size, ensemble_size, num_eval_samples)
             labels_expanded = labels.unsqueeze(1).unsqueeze(2).expand(-1, model.ensemble_size, num_eval_samples) # Shape: (batch_size, ensemble_size, num_eval_samples)
 
             # Compute the log likelihoods
             log_likelihoods = - F.cross_entropy(logits, labels_expanded, reduction="none") # Shape: (batch_size, ensemble_size, num_eval_samples)
+            print(f"Shape of log likelihoods: {log_likelihoods.shape}")
             logsumexp_temp = - torch.logsumexp(log_likelihoods, dim=(1, 2)) + math.log(model.ensemble_size * num_eval_samples) # Eq. 14 in the paper
+            print(f"Shape of logsumexp_temp: {logsumexp_temp.shape}")
             
             # Return the mean NLL across the batch 
             nll = logsumexp_temp.mean() 
             total_nll += nll.item()
 
+            print(f"Shape of probs: {probs.shape}")
             # Average probs over ensemble_size and num_eval_samples, make predictions and compute accuracy
             mean_probs = probs.mean(dim=(2, 3)) # Shape: (batch_size, num_classes)
+            print(f"Shape of mean probs: {mean_probs.shape}")
             preds = mean_probs.argmax(dim=1) 
             correct += preds.eq(labels).sum().item()
 
@@ -239,7 +246,8 @@ def main():
     print(f"Using the following scheduler: {args.scheduler}")
     if args.scheduler == "warm":
         scheduler = WarmUpPiecewiseConstantSchedule(optimizer=optimizer, steps_per_epoch=len(train_loader), base_lr=args.lr, 
-                                                    lr_decay_ratio=0.2, lr_decay_epochs=[80, 160, 180], warmup_epochs=args.warmup_epochs)
+                                                    lr_decay_ratio=0.2, lr_decay_epochs=[45, 80, 100], warmup_epochs=args.warmup_epochs)
+        # Change lr_decay_epochs to [80, 160, 180] for the full training
     elif args.scheduler == "cosine":
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
     elif args.scheduler == "multistep":
@@ -252,7 +260,8 @@ def main():
 
     # Choose either or of the below two options
     # kl_annealing_epochs = args.epochs * 2/3 
-    kl_annealing_epochs = 200
+    # kl_annealing_epochs = 200 # for the full training
+    kl_annealing_epochs = 110
 
 
     # # Training

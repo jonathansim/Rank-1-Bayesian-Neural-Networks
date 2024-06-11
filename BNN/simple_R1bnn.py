@@ -92,5 +92,17 @@ def train(model, optimizer, train_loader, epochs=1, weight_decay=1e-4):
         print(f'Epoch [{epoch + 1}/{epochs}], Average Loss: {running_loss / len(train_loader.dataset):.4f}')
     print(f"The batchcounter is at: {batch_counter}")
     print(f"There are this many minibatches: {num_batches}")
+
+def eval(model, test_loader):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            output = model(data)
+            _, predicted = torch.max(output.data, 1)
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
+    print(f'Accuracy of the network on the 10000 test images: {100 * correct / total}%')
 # Run the training loop for multiple epochs
 train(model, optimizer, train_loader, epochs=5)
