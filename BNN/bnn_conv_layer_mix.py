@@ -84,7 +84,8 @@ class Rank1BayesianConv2d(nn.Module):
         nn.init.normal_(self.s, mean=1.0, std=self.mean_init_std) 
 
         # Initialize rank-1 log-std dev parameters
-        stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
+        # stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
+        stddev_init = np.sqrt(self.dropout_rate_init / (1 - self.dropout_rate_init))
 
         if self.rank1_distribution == "normal":
             nn.init.trunc_normal_(self.r_rho, mean=stddev_init, std=0.1, a=stddev_init-2*0.1, b=stddev_init+2*0.1) 

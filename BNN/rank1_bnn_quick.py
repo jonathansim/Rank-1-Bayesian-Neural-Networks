@@ -160,18 +160,14 @@ def evaluate(model, device, test_loader, num_eval_samples, epoch=None, phase="va
 
             # Compute the log likelihoods
             log_likelihoods = - F.cross_entropy(logits, labels_expanded, reduction="none") # Shape: (batch_size, ensemble_size, num_eval_samples)
-            print(f"Shape of log likelihoods: {log_likelihoods.shape}")
             logsumexp_temp = - torch.logsumexp(log_likelihoods, dim=(1, 2)) + math.log(model.ensemble_size * num_eval_samples) # Eq. 14 in the paper
-            print(f"Shape of logsumexp_temp: {logsumexp_temp.shape}")
             
             # Return the mean NLL across the batch 
             nll = logsumexp_temp.mean() 
             total_nll += nll.item()
 
-            print(f"Shape of probs: {probs.shape}")
             # Average probs over ensemble_size and num_eval_samples, make predictions and compute accuracy
             mean_probs = probs.mean(dim=(2, 3)) # Shape: (batch_size, num_classes)
-            print(f"Shape of mean probs: {mean_probs.shape}")
             preds = mean_probs.argmax(dim=1) 
             correct += preds.eq(labels).sum().item()
 

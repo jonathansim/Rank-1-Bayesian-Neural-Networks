@@ -71,7 +71,8 @@ class Rank1BayesianLinear(nn.Module):
         nn.init.normal_(self.r, mean=1.0, std=self.mean_init_std) 
         nn.init.normal_(self.s, mean=1.0, std=self.mean_init_std) 
 
-        stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
+        # stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
+        stddev_init = np.sqrt(self.dropout_rate_init / (1 - self.dropout_rate_init))
 
         # Initialize rank-1 log-std dev parameters
         if self.rank1_distribution == "normal":
