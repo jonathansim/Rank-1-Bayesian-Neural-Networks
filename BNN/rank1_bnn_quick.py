@@ -25,17 +25,17 @@ from bnn_utils import elbo_loss, WarmUpPiecewiseConstantSchedule, compute_ece
 parser = argparse.ArgumentParser(description='Rank-1 Bayesian Wide ResNet (on CIFAR 10)')
 
 # General arguments
-parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train')
+parser.add_argument('--epochs', type=int, default=140, help='number of epochs to train')
 parser.add_argument('--batch-size', type=int, default=256, help='input mini-batch size for training')
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
-parser.add_argument('--use-subset', default=True, type=bool, help="whether to use a subset (for debugging locally) or all data")
-parser.add_argument('--wandb', default="disabled", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
+parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
+parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
 parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
-parser.add_argument('--warmup-epochs', default=1, type=int, help="Number of warmup epochs")
+parser.add_argument('--warmup-epochs', default=5, type=int, help="Number of warmup epochs")
 parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"], help="which optimizer to use")
 
 # Rank-1 Bayesian specific arguments
