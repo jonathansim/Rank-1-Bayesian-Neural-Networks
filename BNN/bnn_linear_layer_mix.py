@@ -99,15 +99,18 @@ class Rank1BayesianLinear(nn.Module):
         
         # Sample perturbations from the Gaussian or Cauchy distributions
         if self.rank1_distribution == "normal":
-            r_sample = Normal(self.r, r_sigma).rsample()
-            s_sample = Normal(self.s, s_sigma).rsample()
+            r_sample = Normal(self.r, r_sigma).rsample((num_examples_per_ensemble,))
+            s_sample = Normal(self.s, s_sigma).rsample((num_examples_per_ensemble,))
+        
         elif self.rank1_distribution == "cauchy":
             r_sample = Cauchy(self.r, r_sigma).rsample()
             s_sample = Cauchy(self.s, s_sigma).rsample()
         
  
-        R = r_sample.repeat(1, num_examples_per_ensemble).view(-1, self.out_features) # TODO Maybe repeat_interleave is faster?
-        S = s_sample.repeat(1, num_examples_per_ensemble).view(-1, self.in_features)
+        # Reshape the samples for matrix multiplication
+        R = r_sample.permute(1, 0, 2).contiguous().view(-1, self.out_features)
+        S = s_sample.permute(1, 0, 2).contiguous().view(-1, self.in_features)
+       
        
         bias = self.bias.repeat(1, num_examples_per_ensemble).view(-1, self.out_features)
 

@@ -54,7 +54,7 @@ train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 print(f"The batch size is: {train_loader.batch_size}")
 
 # Initialize the model, optimizer, and loss function
-model = SimpleBNN(ensemble_size=3, rank1_distribution='normal', prior_mean=1, prior_stddev=0.1, mean_init_std=0.5)
+model = SimpleBNN(ensemble_size=2, rank1_distribution='normal', prior_mean=1, prior_stddev=0.1, mean_init_std=0.5)
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 # total_params = sum(p.numel() for p in model.parameters())
 # print(f"Number of parameters: {total_params}")
