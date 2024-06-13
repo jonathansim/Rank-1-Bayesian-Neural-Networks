@@ -71,8 +71,8 @@ class Rank1BayesianLinear(nn.Module):
         nn.init.normal_(self.r, mean=1.0, std=self.mean_init_std) 
         nn.init.normal_(self.s, mean=1.0, std=self.mean_init_std) 
 
-        # stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
-        stddev_init = np.sqrt(self.dropout_rate_init / (1 - self.dropout_rate_init))
+        stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
+        # stddev_init = np.sqrt(self.dropout_rate_init / (1 - self.dropout_rate_init))
 
         # Initialize rank-1 log-std dev parameters
         if self.rank1_distribution == "normal":
@@ -126,6 +126,30 @@ class Rank1BayesianLinear(nn.Module):
         r_sigma = torch.log1p(torch.exp(self.r_rho)) + 1e-6
         s_sigma = torch.log1p(torch.exp(self.s_rho)) + 1e-6
         
+
+        # kl = 0.0 
+
+        # for k in range(self.ensemble_size):
+        #     r_k = self.r[k]
+        #     r_sigma_k = r_sigma[k]
+
+
+        #     # Sample from the k-th Gaussian component
+        #     w_k = torch.normal(r_k, r_sigma_k)
+
+        #     # Calculate q(w_k)
+        #     log_q_w_k = torch.logsumexp(torch.stack([
+        #         torch.log(1 / self.ensemble_size) + Normal(self.mu[j], torch.exp(self.log_sigma[j])).log_prob(w_k)
+        #         for j in range(self.ensemble_size)
+        #     ]), dim=0)
+
+        #     # Calculate p(w_k)
+        #     log_p_w_k = Normal(mu_p, sigma_p).log_prob(w_k).sum()
+
+        #     # Calculate f(w_k)
+        #     f_w_k = log_q_w_k - log_p_w_k
+
+
         # Sample perturbations from the Gaussian or Cauchy distributions
         if self.rank1_distribution == "normal":
             r_posterior = Normal(self.r, r_sigma)
@@ -139,3 +163,5 @@ class Rank1BayesianLinear(nn.Module):
         kl_s = kl_divergence(s_posterior, self.weight_prior).sum() / self.ensemble_size
         
         return kl_r + kl_s
+
+        

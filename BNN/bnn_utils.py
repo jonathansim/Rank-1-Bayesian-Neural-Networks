@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import _LRScheduler
+import torch.distributions as dist
 
 
 def he_normal(tensor, mode='fan_in', nonlinearity='relu'):
@@ -104,3 +105,60 @@ def compute_ece(probs, labels, n_bins=15):
             ece += abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
 
     return ece
+
+
+# def kl_divergence_mixture_gaussian(posterior_means, posterior_stds, prior_mean, prior_std, num_samples_per_component=1):
+#     """
+#     Computes the KL divergence between a mixture of Gaussians posterior and a Gaussian prior using Monte Carlo sampling.
+    
+#     Args:
+#         posterior_means (torch.Tensor): Means of the Gaussian components (k, D).
+#         posterior_log_vars (torch.Tensor): Log variances of the Gaussian components (k, D).
+#         prior_mean (torch.Tensor): Mean of the Gaussian prior (D,).
+#         prior_log_var (torch.Tensor): Log variance of the Gaussian prior (D,).
+#         num_samples_per_component (int): Number of samples per component for Monte Carlo estimation.
+        
+#     Returns:
+#         torch.Tensor: The estimated KL divergence.
+#     """
+
+#     k, D = posterior_means.shape
+        
+#     # Create the prior distribution
+#     prior_dist = dist.Normal(prior_mean, prior_std)
+    
+#     # Sample from each component of the mixture posterior
+#     samples = torch.zeros(k * num_samples_per_component, D)
+
+#     for i in range(k):
+#         component_dist = dist.Normal(posterior_means[i], posterior_stds[i])
+#         samples[i] = component_dist.rsample()
+    
+#     # Compute log probabilities under the mixture posterior
+#     for sample in samples:
+
+    
+
+
+
+
+
+
+#     # Compute log-likelihoods under the mixture posterior
+#     log_qx = torch.zeros(k * num_samples_per_component, device=device)
+#     for i in range(k):
+#         component_dist = dist.Normal(posterior_means[i], posterior_stds[i])
+#         log_qx[i * num_samples_per_component:(i + 1) * num_samples_per_component] = component_dist.log_prob(
+#             samples[i * num_samples_per_component:(i + 1) * num_samples_per_component]
+#         ).sum(dim=1)
+
+#     # Normalize log probabilities by number of components
+#     log_qx -= torch.log(torch.tensor(k, dtype=torch.float32, device=device))
+    
+#     # Compute log-likelihoods under the Gaussian prior
+#     log_px = prior_dist.log_prob(samples).sum(dim=1)
+    
+#     # Estimate KL divergence
+#     kl_div = (log_qx - log_px).mean()
+    
+#     return kl_div
