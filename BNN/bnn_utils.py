@@ -108,7 +108,7 @@ def compute_ece(probs, labels, n_bins=15):
     return ece
 
 
-def kl_divergence_mixture_gaussian(posterior_means, posterior_stds, prior_mean, prior_std, num_samples=1):
+def kl_divergence_mixture(posterior_means, posterior_stds, prior_mean, prior_std, num_samples=1):
     """
     Computes the KL divergence between a mixture of Gaussians posterior and a Gaussian prior using Monte Carlo sampling.
     
@@ -122,47 +122,23 @@ def kl_divergence_mixture_gaussian(posterior_means, posterior_stds, prior_mean, 
     Returns:
         torch.Tensor: The estimated KL divergence.
     """
+    k, D = posterior_means.shape
 
-    K, D = posterior_means.shape
-    prior = dist.Normal(prior_mean, prior_std)
-    
-    def f(w, posterior_means, posterior_stds, prior):
-        q_w = torch.stack([torch.exp(dist.Normal(posterior_means[k], posterior_stds[k]).log_prob(w)) for k in range(K)]).mean(dim=0)
-        p_w = torch.exp(prior.log_prob(w))
-        return torch.log(q_w / p_w).mean(dim=0)
-    
-    kl_divergence_est = 0.0
-    for k in range(K):
-        # Sample from the k-th component
-        normal_dist = dist.Normal(posterior_means[k], posterior_stds[k])
-        samples = normal_dist.sample((num_samples,))
-        
-        # Evaluate f(w) for these samples
-        f_samples = f(samples, posterior_means, posterior_stds, prior)
-        
-        # Compute the expected value
-        expected_value = f_samples.mean()
-        
-        # Weighted sum of expected values
-        kl_divergence_est += expected_value / K
-    
-    return kl_divergence_est.item()
+    pi = torch.ones(k) / k
 
-    # k, D = posterior_means.shape
+    posterior_dist = dist.Normal(posterior_means, posterior_stds)
+    prior_dist = dist.Normal(prior_mean, prior_std)   
+    q_dists = [dist.Normal(mu_k, sigma_k) for mu_k, sigma_k in zip(posterior_means , posterior_stds)]
 
-    # posterior_dist = dist.Normal(posterior_means, posterior_stds)
-    # prior_dist = dist.Normal(prior_mean, prior_std)
+    samples = posterior_dist.rsample()
 
-    # samples = posterior_dist.sample((num_samples,))
-        
-    # log_q_w = torch.log(torch.tensor(1.0 / k)) + torch.logsumexp(posterior_dist.log_prob(samples), dim=0)
+    log_q_w_components = torch.stack([torch.log(pi[k]) + q_dist.log_prob(samples) for k, q_dist in enumerate(q_dists)])
+    log_q_w_sum = torch.logsumexp(log_q_w_components, dim=0)
+    log_p_w = prior_dist.log_prob(samples)
 
-    # log_p_w = prior_dist.log_prob(samples)
+    f_w = log_q_w_sum - log_p_w
 
-    # f_w = log_q_w - log_p_w
+    kl_div = f_w.mean(dim=0)
 
-    # KL_div = f_w.mean()
-
-    # return KL_div.item()
-
+    return kl_div.sum()
 

@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from torch.distributions import Normal, kl_divergence, Cauchy
+from bnn_utils import kl_divergence_mixture
 
 
 class Rank1BayesianLinear(nn.Module):
@@ -126,41 +127,20 @@ class Rank1BayesianLinear(nn.Module):
         r_sigma = torch.log1p(torch.exp(self.r_rho)) + 1e-6
         s_sigma = torch.log1p(torch.exp(self.s_rho)) + 1e-6
         
-
-        # kl = 0.0 
-
-        # for k in range(self.ensemble_size):
-        #     r_k = self.r[k]
-        #     r_sigma_k = r_sigma[k]
-
-
-        #     # Sample from the k-th Gaussian component
-        #     w_k = torch.normal(r_k, r_sigma_k)
-
-        #     # Calculate q(w_k)
-        #     log_q_w_k = torch.logsumexp(torch.stack([
-        #         torch.log(1 / self.ensemble_size) + Normal(self.mu[j], torch.exp(self.log_sigma[j])).log_prob(w_k)
-        #         for j in range(self.ensemble_size)
-        #     ]), dim=0)
-
-        #     # Calculate p(w_k)
-        #     log_p_w_k = Normal(mu_p, sigma_p).log_prob(w_k).sum()
-
-        #     # Calculate f(w_k)
-        #     f_w_k = log_q_w_k - log_p_w_k
-
-
-        # Sample perturbations from the Gaussian or Cauchy distributions
-        if self.rank1_distribution == "normal":
-            r_posterior = Normal(self.r, r_sigma)
-            s_posterior = Normal(self.s, s_sigma)
-        elif self.rank1_distribution == "cauchy":
-            r_posterior = Cauchy(self.r, r_sigma)
-            s_posterior = Cauchy(self.s, s_sigma)
+        # # Sample perturbations from the Gaussian or Cauchy distributions
+        # if self.rank1_distribution == "normal":
+        #     r_posterior = Normal(self.r, r_sigma)
+        #     s_posterior = Normal(self.s, s_sigma)
+        # elif self.rank1_distribution == "cauchy":
+        #     r_posterior = Cauchy(self.r, r_sigma)
+        #     s_posterior = Cauchy(self.s, s_sigma)
         
-        # Compute KL divergence between the posteriors and the prior, sum and divide by ensemble size
-        kl_r = kl_divergence(r_posterior, self.weight_prior).sum() / self.ensemble_size
-        kl_s = kl_divergence(s_posterior, self.weight_prior).sum() / self.ensemble_size
+        # # Compute KL divergence between the posteriors and the prior, sum and divide by ensemble size
+        # kl_r = kl_divergence(r_posterior, self.weight_prior).sum() / self.ensemble_size
+        # kl_s = kl_divergence(s_posterior, self.weight_prior).sum() / self.ensemble_size
+
+        kl_r = kl_divergence_mixture(self.r, r_sigma, self.prior_mean, self.prior_stddev)
+        kl_s = kl_divergence_mixture(self.s, s_sigma, self.prior_mean, self.prior_stddev)
         
         return kl_r + kl_s
 
