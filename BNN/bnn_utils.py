@@ -123,21 +123,46 @@ def kl_divergence_mixture_gaussian(posterior_means, posterior_stds, prior_mean, 
         torch.Tensor: The estimated KL divergence.
     """
 
-    k, D = posterior_means.shape
-
-    posterior_dist = dist.Normal(posterior_means, posterior_stds)
-    prior_dist = dist.Normal(prior_mean, prior_std)
-
-    samples = posterior_dist.sample((num_samples,))
+    K, D = posterior_means.shape
+    prior = dist.Normal(prior_mean, prior_std)
+    
+    def f(w, posterior_means, posterior_stds, prior):
+        q_w = torch.stack([torch.exp(dist.Normal(posterior_means[k], posterior_stds[k]).log_prob(w)) for k in range(K)]).mean(dim=0)
+        p_w = torch.exp(prior.log_prob(w))
+        return torch.log(q_w / p_w).mean(dim=0)
+    
+    kl_divergence_est = 0.0
+    for k in range(K):
+        # Sample from the k-th component
+        normal_dist = dist.Normal(posterior_means[k], posterior_stds[k])
+        samples = normal_dist.sample((num_samples,))
         
-    log_q_w = torch.log(torch.tensor(1.0 / k)) + torch.logsumexp(posterior_dist.log_prob(samples), dim=0)
+        # Evaluate f(w) for these samples
+        f_samples = f(samples, posterior_means, posterior_stds, prior)
+        
+        # Compute the expected value
+        expected_value = f_samples.mean()
+        
+        # Weighted sum of expected values
+        kl_divergence_est += expected_value / K
+    
+    return kl_divergence_est.item()
 
-    log_p_w = prior_dist.log_prob(samples)
+    # k, D = posterior_means.shape
 
-    f_w = log_q_w - log_p_w
+    # posterior_dist = dist.Normal(posterior_means, posterior_stds)
+    # prior_dist = dist.Normal(prior_mean, prior_std)
 
-    KL_div = f_w.mean()
+    # samples = posterior_dist.sample((num_samples,))
+        
+    # log_q_w = torch.log(torch.tensor(1.0 / k)) + torch.logsumexp(posterior_dist.log_prob(samples), dim=0)
 
-    return KL_div.item()
+    # log_p_w = prior_dist.log_prob(samples)
+
+    # f_w = log_q_w - log_p_w
+
+    # KL_div = f_w.mean()
+
+    # return KL_div.item()
 
 
