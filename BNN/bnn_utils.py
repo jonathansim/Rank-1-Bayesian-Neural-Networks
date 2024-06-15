@@ -112,7 +112,7 @@ def kl_divergence_mixture(posterior_means, posterior_stds, prior_mean, prior_std
     """
     Computes the KL divergence between a mixture of Gaussians posterior and a Gaussian prior using Monte Carlo sampling.
     
-    Args:
+    Args:<
         posterior_means (torch.Tensor): Means of the Gaussian components (k, D).
         posterior_stds (torch.Tensor): Standard deviations of the Gaussian components (k, D).
         prior_mean (float): Mean of the Gaussian prior.

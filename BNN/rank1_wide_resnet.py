@@ -121,7 +121,6 @@ class Rank1Bayesian_WideResNet(nn.Module):
                 m.bias.data.zero_()
     
     def forward(self, x):
-        batch_size = x.size(0) # Dynamically retrieve the batch size
         out = self.conv1(x)
         out = self.block1(out)
         out = self.block2(out)
