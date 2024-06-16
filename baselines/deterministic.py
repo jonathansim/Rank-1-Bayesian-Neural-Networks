@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import argparse
 import numpy as np
 import torchmetrics
+from torchmetrics.classification import CalibrationError
 import json 
 from datetime import datetime
 import random
@@ -26,11 +27,13 @@ parser.add_argument('--batch-size', type=int, default=128, help='input mini-batc
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
-parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
+parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
 parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
 parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
+parser.add_argument('--warmup-epochs', default=5, type=int, help="Number of warmup epochs")
+parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
 
 
 def set_training_seed(seed):
@@ -74,64 +77,66 @@ def train(model, device, train_loader, optimizer, criterion, epoch, scheduler=No
                   (epoch, batch_idx + 1, running_loss / 100)) # print epoch, batch_index and average loss over that mini-batch
             running_loss = 0.0
         
-        wandb.log({"loss":loss.item()})
+        wandb.log({"training_loss":loss.item(), "lr": optimizer.param_groups[0]['lr'], })
         
     # Store the epoch loss and accuracy
     average_epoch_loss = epoch_loss / num_batches
     train_accuracy = 100 * correct / total
     current_lr = optimizer.param_groups[0]['lr']
 
-    wandb.log({"epoch": epoch+1, "accuracy": train_accuracy, "lr": current_lr, "avg_epoch_loss": average_epoch_loss})
+    wandb.log({"epoch": epoch+1, "training_accuracy": train_accuracy, "avg_epoch_loss": average_epoch_loss})
 
     results["epoch"] = epoch
     results["avg_epoch_loss"] = average_epoch_loss
     results["train_accuracy"] = train_accuracy
     results["lr"] = current_lr
 
-    print(f"Epoch {epoch} Training Loss: {average_epoch_loss:.3f}, Training Accuracy: {train_accuracy:.2f}%")
     return results 
 
-def evaluate(model, test_loader, device, epoch=None, metrics=None, phase="Validation"):
+def evaluate(model, test_loader, device, epoch=None, metrics=None, phase="validation"):
     model.eval()
-    total = 0
+    correct = 0
+    total = len(test_loader.dataset)
     total_nll = 0.0
-    results = {}
+    num_classes = 10 # CIFAR-10
+    ece_metric = CalibrationError(n_bins=15, norm='l1', task="multiclass", num_classes=num_classes).to(device)
 
     with torch.no_grad():
         for (inputs, labels) in test_loader: 
             inputs, labels = inputs.to(device), labels.to(device)
             outputs = model(inputs)
 
-            # Compute log probabilities and calculate NLL loss for the current batch and then accumulate
+            # Calculate NLL loss
+            nll_loss = F.cross_entropy(outputs, labels, reduction='mean')
+            total_nll += nll_loss.item()
+
+            # Compute probs
+            probs = F.softmax(outputs, dim=1)
+
             log_probs = F.log_softmax(outputs, dim=1) 
             nll_loss = F.nll_loss(log_probs, labels)
             total_nll += nll_loss.item() * inputs.size(0)
+            
+            # Compute accuracy
+            _, predicted = outputs.max(1)
             total += labels.size(0)
+            correct += predicted.eq(labels).sum().item()
+
+            # Compute ECE
+            ece_metric.update(probs, labels)
                
-            if metrics:
-                for metric in metrics.values():
-                    metric.update(outputs, labels)
 
-    if epoch is not None:
-        results["epoch"] = epoch
+    average_nll = total_nll / len(test_loader)
+    accuracy = 100. * correct / total
+    ece = ece_metric.compute().item()
 
-    # Calculate final metric values
-    results["average_nll"] = total_nll / total
-
+    wandb.log({f"{phase}_average_epoch_nll": average_nll, f"{phase}_accuracy": accuracy, f"{phase}_ece": ece})
     
-    # Compute and store results for any additional metrics
-    if metrics:
-        for name, metric in metrics.items():
-            results[name] = metric.compute().item()
-            if name == "accuracy":
-                results[name] = results[name]*100
-            metric.reset()
+    if phase == "validation":
+        results = {"epoch": epoch, "accuracy": accuracy, "ece": ece, "average_nll": average_nll}
+    else:
+        results = {"accuracy": accuracy, "ece": ece, "average_nll": average_nll}
 
-    # print(f'Accuracy of this network is {results["accuracy"]}')
-    # print(f'ECE of this network is {results["ece"]}')
-    # print(f"The average NLL of this network is {results["average_nll"]}")
-
-    wandb.log({"validation_nll_loss": results["average_nll"], "validation_accuracy": results["accuracy"], "validation_ece": results["ece"]})
     print(f"{phase} Results: {results}")
     return results
 
@@ -153,7 +158,13 @@ def main():
     print(f"Total number of epochs {args.epochs}")
 
     # Initialize W&B
-    run_name = f"B{batch_size}_weight_decay{args.weight_decay}"
+    if args.use_subset:
+        run_name = f"TestRun_LearningRate"
+    else:
+        run_name = f"B{batch_size}_seed{training_seed}"
+    
+    # Initialize W&B
+   
     wandb.init(project='deterministic-WR', mode=mode_for_wandb, name=run_name)
 
     # Set device
@@ -165,11 +176,6 @@ def main():
         device = torch.device("cpu")
     print(f"Using device {device}")
 
-    # Define metrics to be computed 
-    model_accuracy = torchmetrics.classification.Accuracy(task="multiclass", num_classes=10).to(device)
-    model_ECE = torchmetrics.classification.MulticlassCalibrationError(num_classes=10, n_bins=15, norm="l1").to(device)
-    metrics = {"accuracy": model_accuracy, "ece": model_ECE} # note that NLL is computed directly in val loop
-    
     # Data pre-processing
     train_loader, val_loader, test_loader = load_data(batch_size=batch_size, seed=data_seed, subset_size=subset_size)
 
@@ -183,46 +189,55 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, nesterov=args.nesterov, weight_decay=args.weight_decay)
 
+
     # Learning rate scheduler (if using one, otherwise None)
-    scheduler = None
-    if args.use_scheduler:
-        print("Now using a scheduler for the LR!!")
-        # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    print(f"Using the following scheduler: {args.scheduler}")
+    if args.scheduler == "warm":
         scheduler = WarmUpPiecewiseConstantSchedule(optimizer=optimizer, steps_per_epoch=len(train_loader), base_lr=args.lr, 
-                                                    lr_decay_ratio=0.2, lr_decay_epochs=[60, 120, 160], warmup_epochs=1)
+                                                    lr_decay_ratio=0.2, lr_decay_epochs=[60, 120, 160], warmup_epochs=args.warmup_epochs)
+    elif args.scheduler == "cosine":
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    elif args.scheduler == "multistep":
+        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 120, 160], gamma=0.2)
+    elif args.scheduler == "none":
+        scheduler = None
 
     # Results for each epoch
     all_train_results = []
     all_val_results = []
     for epoch in range(args.epochs):
         train_results = train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, criterion=criterion, epoch=epoch, scheduler=scheduler)
-        val_results = evaluate(model=model, test_loader=val_loader, device=device, epoch=epoch, metrics=metrics, phase="Validation")
+        val_results = evaluate(model=model, test_loader=val_loader, device=device, epoch=epoch, phase="validation")
         all_train_results.append(train_results)
         all_val_results.append(val_results)
+
+        if args.scheduler == "multistep":
+            scheduler.step()
+            print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
     
     # Whether to perform evaluation on the testing set
     test_metrics = None
     if args.use_subset is False: 
-        test_metrics = evaluate(model=model, test_loader=test_loader, device=device, metrics=metrics, phase="Testing")
+        test_metrics = evaluate(model=model, test_loader=test_loader, device=device, phase="testing")
         print("Now computing test metrics!")
 
-    # Save results for later
-    current_time = datetime.now().strftime("%m-%d-H%H")
-    filename_train = f'det_train_results_{current_time}.json'
-    filename_val = f'det_val_results_{current_time}.json'
-    filename_test = f'det_test_results_{current_time}.json'
+    # # Save results for later
+    # current_time = datetime.now().strftime("%m-%d-H%H")
+    # filename_train = f'det_train_results_{current_time}.json'
+    # filename_val = f'det_val_results_{current_time}.json'
+    # filename_test = f'det_test_results_{current_time}.json'
 
-    #### UNCOMMENT BELOW TO SAVE RESULTS TO JSON FILES!!! ####
+    # #### UNCOMMENT BELOW TO SAVE RESULTS TO JSON FILES!!! ####
 
-    # with open(filename_train, 'w') as file:
-    #     json.dump(all_train_results, file)
+    # # with open(filename_train, 'w') as file:
+    # #     json.dump(all_train_results, file)
     
-    # with open(filename_val, 'w') as file:
-    #     json.dump(all_val_results, file)
+    # # with open(filename_val, 'w') as file:
+    # #     json.dump(all_val_results, file)
     
-    # if test_metrics is not None: 
-    #     with open(filename_test, 'w') as file:
-    #         json.dump(test_metrics, file)
+    # # if test_metrics is not None: 
+    # #     with open(filename_test, 'w') as file:
+    # #         json.dump(test_metrics, file)
 
 if __name__ == '__main__':
    main()
