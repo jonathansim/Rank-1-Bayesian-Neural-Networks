@@ -27,12 +27,12 @@ parser.add_argument('--batch-size', type=int, default=128, help='input mini-batc
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
-parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float, help='weight decay')
+parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
 parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
 parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
-parser.add_argument('--warmup-epochs', default=5, type=int, help="Number of warmup epochs")
+parser.add_argument('--warmup-epochs', default=1, type=int, help="Number of warmup epochs")
 parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
 
 
@@ -107,30 +107,25 @@ def evaluate(model, test_loader, device, epoch=None, metrics=None, phase="valida
             outputs = model(inputs)
 
             # Calculate NLL loss
-            nll_loss = F.cross_entropy(outputs, labels, reduction='mean')
+            nll_loss = F.cross_entropy(outputs, labels, reduction='sum')
             total_nll += nll_loss.item()
 
             # Compute probs
             probs = F.softmax(outputs, dim=1)
 
-            log_probs = F.log_softmax(outputs, dim=1) 
-            nll_loss = F.nll_loss(log_probs, labels)
-            total_nll += nll_loss.item() * inputs.size(0)
-            
             # Compute accuracy
             _, predicted = outputs.max(1)
-            total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
 
             # Compute ECE
             ece_metric.update(probs, labels)
                
 
-    average_nll = total_nll / len(test_loader)
+    average_nll = total_nll / total
     accuracy = 100. * correct / total
     ece = ece_metric.compute().item()
 
-    wandb.log({f"{phase}_average_epoch_nll": average_nll, f"{phase}_accuracy": accuracy, f"{phase}_ece": ece})
+    wandb.log({f"{phase}_nll_loss": average_nll, f"{phase}_accuracy": accuracy, f"{phase}_ece": ece})
     
     if phase == "validation":
         results = {"epoch": epoch, "accuracy": accuracy, "ece": ece, "average_nll": average_nll}
