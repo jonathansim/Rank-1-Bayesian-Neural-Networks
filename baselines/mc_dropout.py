@@ -170,7 +170,7 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"B{batch_size}_seed{training_seed}"
+        run_name = f"B{batch_size}_seed{training_seed}_FP{args.forward_passes}"
     
     # Initialize W&B
    
