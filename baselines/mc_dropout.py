@@ -15,7 +15,7 @@ from datetime import datetime
 import random
 import wandb 
 
-from wide_resnet import WideResNet
+from wide_resnet_mc_dropout import WideResNet
 
 from data_utils import load_data
 from custom_scheduler import WarmUpPiecewiseConstantSchedule
@@ -38,7 +38,7 @@ parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "c
 
 # MC Dropout specific arguments
 parser.add_argument('--droprate', default=0.1, type=float, help="dropout probability")
-parser.add_argument('--forward-passes', default=3, type=int, help="number of MC dropout forward passes for validation")
+parser.add_argument('--forward-passes', default=1, type=int, help="number of MC dropout forward passes for validation")
 
 
 def set_training_seed(seed):
