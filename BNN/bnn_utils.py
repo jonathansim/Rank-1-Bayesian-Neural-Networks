@@ -108,7 +108,7 @@ def compute_ece(probs, labels, n_bins=15):
     return ece
 
 
-def kl_divergence_mixture(posterior_means, posterior_stds, prior_mean, prior_std, num_samples=1):
+def kl_divergence_mixture(posterior_means, posterior_stds, prior_mean, prior_std):
     """
     Computes the KL divergence between a mixture of Gaussians posterior and a Gaussian prior using Monte Carlo sampling.
     
@@ -117,28 +117,25 @@ def kl_divergence_mixture(posterior_means, posterior_stds, prior_mean, prior_std
         posterior_stds (torch.Tensor): Standard deviations of the Gaussian components (k, D).
         prior_mean (float): Mean of the Gaussian prior.
         prior_std (float): Standard deviation of the Gaussian prior.
-        num_samples (int): Number of samples per component for Monte Carlo estimation.
         
     Returns:
         torch.Tensor: The estimated KL divergence.
     """
     k, D = posterior_means.shape
-
-    pi = torch.ones(k) / k
-
-    posterior_dist = dist.Normal(posterior_means, posterior_stds)
-    prior_dist = dist.Normal(prior_mean, prior_std)   
-    q_dists = [dist.Normal(mu_k, sigma_k) for mu_k, sigma_k in zip(posterior_means , posterior_stds)]
-
+    log_pi = torch.tensor ([1.0 / k]).log()
+    
+    posterior_dist = dist.Normal (posterior_means, posterior_stds)
+    prior_dist = dist.Normal (prior_mean, prior_std)
     samples = posterior_dist.rsample()
+    
+    # this log_q_w_components differs from the original log_q_w_components by a .permute (1, 0, 2)
+    log_q_w_components = log_pi + posterior_dist.log_prob (samples.unsqueeze (1).expand (k, k, D))
 
-    log_q_w_components = torch.stack([torch.log(pi[k]) + q_dist.log_prob(samples) for k, q_dist in enumerate(q_dists)])
-    log_q_w_sum = torch.logsumexp(log_q_w_components, dim=0)
-    log_p_w = prior_dist.log_prob(samples)
-
+    # dim = 1 (instead of the original dim = 0) compensates for difference in log_q_w_components
+    log_q_w_sum = torch.logsumexp (log_q_w_components, dim = 1)
+    
+    log_p_w = prior_dist.log_prob (samples)
     f_w = log_q_w_sum - log_p_w
-
-    kl_div = f_w.mean(dim=0)
-
+    kl_div = f_w.mean (dim = 0)
     return kl_div.sum()
 
