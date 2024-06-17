@@ -122,20 +122,21 @@ def kl_divergence_mixture(posterior_means, posterior_stds, prior_mean, prior_std
         torch.Tensor: The estimated KL divergence.
     """
     k, D = posterior_means.shape
-    log_pi = torch.tensor ([1.0 / k]).log()
+    log_pi = torch.tensor([1.0 / k]).log().to(posterior_means.device)
     
-    posterior_dist = dist.Normal (posterior_means, posterior_stds)
-    prior_dist = dist.Normal (prior_mean, prior_std)
+    posterior_dist = dist.Normal(posterior_means, posterior_stds)
+    prior_dist = dist.Normal(prior_mean, prior_std)
     samples = posterior_dist.rsample()
     
     # this log_q_w_components differs from the original log_q_w_components by a .permute (1, 0, 2)
-    log_q_w_components = log_pi + posterior_dist.log_prob (samples.unsqueeze (1).expand (k, k, D))
+    log_q_w_components = log_pi + posterior_dist.log_prob(samples.unsqueeze (1).expand(k, k, D))
 
     # dim = 1 (instead of the original dim = 0) compensates for difference in log_q_w_components
-    log_q_w_sum = torch.logsumexp (log_q_w_components, dim = 1)
+    log_q_w_sum = torch.logsumexp(log_q_w_components, dim = 1)
     
-    log_p_w = prior_dist.log_prob (samples)
+    log_p_w = prior_dist.log_prob(samples)
     f_w = log_q_w_sum - log_p_w
-    kl_div = f_w.mean (dim = 0)
+    kl_div = f_w.mean(dim = 0)
+
     return kl_div.sum()
 
