@@ -25,10 +25,10 @@ parser = argparse.ArgumentParser(description='MC dropout Wide ResNet (on CIFAR 1
 
 parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train')
 parser.add_argument('--batch-size', type=int, default=128, help='input mini-batch size for training')
-parser.add_argument('--lr', type=float, default=0.05, help='learning rate')
+parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
-parser.add_argument('--weight-decay', '--wd', default=3e-4, type=float, help='weight decay')
+parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float, help='weight decay')
 parser.add_argument('--seed', default=1, type=int, help="seed for reproducibility")
 parser.add_argument('--use-scheduler', default=True, type=bool, help="Whether to use a scheduler for the LR or not")
 parser.add_argument('--use-subset', default=False, type=bool, help="whether to use a subset (for debugging locally) or all data")
@@ -37,7 +37,7 @@ parser.add_argument('--warmup-epochs', default=1, type=int, help="Number of warm
 parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
 
 # MC Dropout specific arguments
-parser.add_argument('--droprate', default=0.1, type=float, help="dropout probability")
+parser.add_argument('--droprate', default=0.3, type=float, help="dropout probability")
 parser.add_argument('--forward-passes', default=1, type=int, help="number of MC dropout forward passes for validation")
 
 
