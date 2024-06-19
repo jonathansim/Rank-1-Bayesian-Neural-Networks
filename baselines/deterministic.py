@@ -22,7 +22,7 @@ from custom_scheduler import WarmUpPiecewiseConstantSchedule
 # Add parsing functionality 
 parser = argparse.ArgumentParser(description='Deterministic Wide ResNet (on CIFAR 10)')
 
-parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train')
+parser.add_argument('--epochs', type=int, default=200, help='number of epochs to train')
 parser.add_argument('--batch-size', type=int, default=128, help='input mini-batch size for training')
 parser.add_argument('--lr', type=float, default=0.1, help='learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
@@ -34,6 +34,7 @@ parser.add_argument('--use-subset', default=False, type=bool, help="whether to u
 parser.add_argument('--wandb', default="online", type=str, choices=["online", "disabled"] , help="whether to track with weights and biases or not")
 parser.add_argument('--warmup-epochs', default=1, type=int, help="Number of warmup epochs")
 parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
+parser.add_argument('--save-model', default=True, type=bool, help="whether to save the model or not")
 
 
 def set_training_seed(seed):
@@ -215,6 +216,10 @@ def main():
     if args.use_subset is False: 
         test_metrics = evaluate(model=model, test_loader=test_loader, device=device, phase="testing")
         print("Now computing test metrics!")
+    
+    # Save the model
+    if args.save_model:
+        torch.save(model.state_dict(), "deterministic_WR_model.pth")
 
     # # Save results for later
     # current_time = datetime.now().strftime("%m-%d-H%H")
