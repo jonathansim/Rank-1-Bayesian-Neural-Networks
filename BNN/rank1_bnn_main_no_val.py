@@ -219,7 +219,7 @@ def main():
     print(f"Using device {device}")
 
     # Data pre-processing
-    train_loader, val_loader, test_loader = load_data(batch_size=batch_size, seed=data_seed, subset_size=subset_size, do_validation=True)
+    train_loader, test_loader = load_data(batch_size=batch_size, seed=data_seed, subset_size=subset_size, do_validation=False)
 
     # Set seed for training
     set_training_seed(training_seed)
@@ -260,10 +260,6 @@ def main():
         batch_counter = train(model=model, device=device, train_loader=train_loader, optimizer=optimizer, epoch=epoch, 
               batch_counter=batch_counter, num_batches=num_batches, weight_decay=args.weight_decay, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
         
-        # old_evaluate(model=model, device=device, test_loader=val_loader)
-        _, _, _ = evaluate(model=model, device=device, test_loader=val_loader, num_eval_samples=args.num_eval_samples, phase="validation")
-        print("Done with evaluation")
-
         if args.scheduler == "multistep":
             scheduler.step()
             print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')

@@ -15,7 +15,7 @@ def set_data_seed(seed):
     random.seed(seed)
 
 
-def load_data(batch_size=128, seed=42, subset_size=None):
+def load_data(batch_size=128, seed=42, subset_size=None, do_validation=True):
     '''
     subset_size: number of training samples used (the validation subset size is given by subset_size/2)
     '''
@@ -41,27 +41,35 @@ def load_data(batch_size=128, seed=42, subset_size=None):
     val_dataset = datasets.CIFAR10(root='../data', train=True, download=True, transform=test_transform)
     test_dataset = datasets.CIFAR10(root='../data', train=False, download=True, transform=test_transform)
 
-    # Load indices
-    train_indices = np.load('./data/cifar10_train_indices.npy')
-    val_indices = np.load('./data/cifar10_val_indices.npy')
+  
+    if do_validation:
 
-    # Optionally create subsets for local debugging
-    if subset_size is not None:
-        train_indices = np.random.choice(train_indices, subset_size, replace=False)
-        val_indices = np.random.choice(val_indices, int(subset_size/2), replace=False)
-        batch_size = 32
+        # Load indices
+        train_indices = np.load('./data/cifar10_train_indices.npy')
+        val_indices = np.load('./data/cifar10_val_indices.npy')
 
+        # Optionally create subsets for local debugging
+        if subset_size is not None:
+            train_indices = np.random.choice(train_indices, subset_size, replace=False)
+            val_indices = np.random.choice(val_indices, int(subset_size/2), replace=False)
+            batch_size = 32
+
+        # Create subsets
+        train_subset = Subset(train_dataset, train_indices)
+        val_subset = Subset(val_dataset, val_indices)
+
+        # Data loaders
+        train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+        return train_loader, val_loader, test_loader
     
-    # Create subsets
-    train_subset = Subset(train_dataset, train_indices)
-    val_subset = Subset(val_dataset, val_indices)
-
-
-    # Data loaders
-    train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-
-    return train_loader, val_loader, test_loader
+    else:
+        # Data loaders
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+        
+        return train_loader, test_loader
 
 
