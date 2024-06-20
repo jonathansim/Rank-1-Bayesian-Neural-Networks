@@ -37,6 +37,7 @@ parser.add_argument('--wandb', default="online", type=str, choices=["online", "d
 parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
 parser.add_argument('--warmup-epochs', default=5, type=int, help="Number of warmup epochs")
 parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"], help="which optimizer to use")
+parser.add_argument('--save-model', default=True, type=bool, help="whether to save the model or not")
 
 # Rank-1 Bayesian specific arguments
 parser.add_argument('--ensemble-size', default=2, type=int, help="Number of models in the ensemble")
@@ -267,6 +268,13 @@ def main():
     # Testing
     test_accuracy, test_nll, test_ece = evaluate(model=model, device=device, test_loader=test_loader, num_eval_samples=args.num_eval_samples, phase="testing")
     print(f"Test accuracy: {test_accuracy}, Test NLL: {test_nll}, Test ECE: {test_ece}")
+    
+    # Save the model
+    if args.save_model:
+        seed = args.seed
+        ensemble_size = args.ensemble_size
+        model_name = f"BNN_seed{seed}_ES{ensemble_size}_AllData.pth"
+        torch.save(model.state_dict(), model_name)
     
 
 if __name__ == '__main__':

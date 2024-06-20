@@ -9,3 +9,4 @@ hpc_jobscript_det.sh
 .DS_Store
 BNN/discarded/lr_scheduler_test.py
 rank1_bnn_main_SANDBOX.py
+deterministic_WR_model.pth
