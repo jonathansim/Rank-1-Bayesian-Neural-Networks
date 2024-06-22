@@ -37,7 +37,7 @@ parser.add_argument('--wandb', default="online", type=str, choices=["online", "d
 parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
 parser.add_argument('--warmup-epochs', default=5, type=int, help="Number of warmup epochs")
 parser.add_argument('--optimizer', default="sgd", type=str, choices=["sgd", "adam"], help="which optimizer to use")
-parser.add_argument('--save-model', default=True, type=bool, help="whether to save the model or not")
+parser.add_argument('--save-model', default=False, type=bool, help="whether to save the model or not")
 
 # Rank-1 Bayesian specific arguments
 parser.add_argument('--ensemble-size', default=2, type=int, help="Number of models in the ensemble")
