@@ -76,6 +76,13 @@ def train(model,
     num_classes = 10 # CIFAR-10
     # ece_metric = CalibrationError(n_bins=15, norm='l1', task="multiclass", num_classes=num_classes).to(device)
 
+    # Initialize accumulators for metrics
+    epoch_loss = 0
+    epoch_nll_loss = 0
+    epoch_kl_loss = 0
+    epoch_kl_div = 0
+    num_batches_in_epoch = len(train_loader)
+
     for batch_idx, (data, target) in enumerate(train_loader):
         # print(batch_idx)
         data, target = data.to(device), target.to(device)
@@ -98,19 +105,7 @@ def train(model,
                 total_norm += param_norm.item() ** 2
         total_norm = total_norm ** (1. / 2)
 
-        # Gradient clipping!!!
-        if model.rank1_distribution == "cauchy":
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
-
-            ### Track the gradient norm after clipping
-            total_norm_after = 0
-            for p in model.parameters():
-                if p.grad is not None:
-                    param_norm = p.grad.data.norm(2)
-                    total_norm_after += param_norm.item() ** 2
-            total_norm_after = total_norm_after ** (1. / 2)
-            wandb.log({"grad_norm_after": total_norm_after})
-
+        
         optimizer.step()
 
         # Use LR scheduler 
@@ -122,13 +117,27 @@ def train(model,
         _, predicted = output.max(1)
         total += target.size(0)
         correct += predicted.eq(target).sum().item()
+
+        # Accumulate metrics
+        epoch_loss += loss.item()
+        epoch_nll_loss += nll_loss.item()
+        epoch_kl_loss += kl_loss.item()
+        epoch_kl_div += kl_div.item()
         
         wandb.log({"loss":loss.item(), "nll_loss": nll_loss.item(), "kl_div": kl_loss.item(), "batch_count": batch_counter, 
                    "kl_div_unscaled": kl_div.item(), "lr": optimizer.param_groups[0]['lr'], "grad_norm": total_norm})
         
     train_accuracy = 100 * correct / total
     # current_lr = optimizer.param_groups[0]['lr']
-    wandb.log({"epoch": epoch+1, "accuracy": train_accuracy})
+
+    # Calculate average metrics for the epoch
+    avg_loss = epoch_loss / num_batches_in_epoch
+    avg_nll_loss = epoch_nll_loss / num_batches_in_epoch
+    avg_kl_loss = epoch_kl_loss / num_batches_in_epoch
+    avg_kl_div = epoch_kl_div / num_batches_in_epoch
+
+    wandb.log({"epoch": epoch+1, "accuracy": train_accuracy, "avg_loss": avg_loss, "avg_nll_loss": avg_nll_loss, 
+               "avg_kl_loss": avg_kl_loss, "avg_kl_div": avg_kl_div, "epoch_lr": optimizer.param_groups[0]['lr']})
 
 
     return batch_counter
@@ -277,7 +286,7 @@ def main():
     if args.save_model:
         seed = args.seed
         ensemble_size = args.ensemble_size
-        model_name = f"r1BNN_seed-{seed}_{ensemble_size}-components.pth"
+        model_name = f"BNN_seed{seed}_mixture{ensemble_size}.pth"
         torch.save(model.state_dict(), model_name)
     
 
