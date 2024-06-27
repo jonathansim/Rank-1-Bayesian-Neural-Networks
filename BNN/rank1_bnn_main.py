@@ -278,16 +278,17 @@ def main():
             scheduler.step()
             print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
         
-    # Testing
-    test_accuracy, test_nll, test_ece = evaluate(model=model, device=device, test_loader=test_loader, num_eval_samples=args.num_eval_samples, phase="testing")
-    print(f"Test accuracy: {test_accuracy}, Test NLL: {test_nll}, Test ECE: {test_ece}")
-    
     # Save the model
     if args.save_model:
         seed = args.seed
         ensemble_size = args.ensemble_size
         model_name = f"BNN_seed{seed}_mixture{ensemble_size}.pth"
         torch.save(model.state_dict(), model_name)
+    
+    # Testing
+    test_accuracy, test_nll, test_ece = evaluate(model=model, device=device, test_loader=test_loader, num_eval_samples=args.num_eval_samples, phase="testing")
+    print(f"Test accuracy: {test_accuracy}, Test NLL: {test_nll}, Test ECE: {test_ece}")
+    
     
 
 if __name__ == '__main__':
