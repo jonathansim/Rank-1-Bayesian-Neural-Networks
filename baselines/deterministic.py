@@ -72,7 +72,7 @@ def train(model, device, train_loader, optimizer, criterion, epoch, scheduler=No
         _, predicted = output.max(1)
         total += target.size(0)
         correct += predicted.eq(target).sum().item()
-
+        
         if batch_idx % 100 == 99:    # print every 100 mini-batches
             print('[%d, %5d] loss: %.3f' %
                   (epoch, batch_idx + 1, running_loss / 100)) # print epoch, batch_index and average loss over that mini-batch
@@ -219,8 +219,9 @@ def main():
     
     # Save the model
     if args.save_model:
-        torch.save(model.state_dict(), "deterministic_WR_model.pth")
-
+        seed = args.seed
+        model_name = f"detWR_seed{seed}.pth"
+        torch.save(model.state_dict(), model_name)
     # # Save results for later
     # current_time = datetime.now().strftime("%m-%d-H%H")
     # filename_train = f'det_train_results_{current_time}.json'
