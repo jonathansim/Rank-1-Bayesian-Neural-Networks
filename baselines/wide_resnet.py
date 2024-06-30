@@ -12,6 +12,7 @@ class BasicBlock(nn.Module):
         self.relu2 = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(out_planes, out_planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.droprate = dropRate
+        self.dropout = nn.Dropout(p=dropRate)
         self.equalInOut = (in_planes == out_planes)
 
         # If the number of input channels is not equal to the number of output channels, 
@@ -28,7 +29,7 @@ class BasicBlock(nn.Module):
             out = self.relu1(self.bn1(x))
         out = self.relu2(self.bn2(self.conv1(out if self.equalInOut else x)))
         if self.droprate > 0:
-            out = F.dropout(out, p=self.droprate, training=self.training)
+            out = self.dropout(out)
         out = self.conv2(out)
         return torch.add(x if self.equalInOut else self.convShortcut(x), out)
 

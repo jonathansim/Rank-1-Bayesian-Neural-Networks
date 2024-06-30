@@ -48,6 +48,12 @@ def set_training_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
 
+def enable_dropout(model):
+    """ Function to enable the dropout layers during test-time """
+    for m in model.modules():
+        if isinstance(m, nn.Dropout):
+            m.train()
+
 def train(model, device, train_loader, optimizer, criterion, epoch, scheduler=None):
     print('\nEpoch: %d' % epoch)
     model.train()
@@ -99,7 +105,8 @@ def train(model, device, train_loader, optimizer, criterion, epoch, scheduler=No
     return results 
 
 def evaluate(model, test_loader, device, epoch=None, num_forward_passes=1, phase="validation"):
-    model.train()
+    model.eval()
+    enable_dropout(model)
     correct = 0
     total = len(test_loader.dataset)
     total_nll = 0.0
