@@ -103,7 +103,7 @@ def main():
     corrupted_data_loader, normal_data_loader = load_corrupted_data(batch_size=batch_size, seed=5)
     
     # Define the number of evaluation samples to test
-    evaluation_samples = [1, 2, 4, 8, 16, 32]
+    evaluation_samples = [1, 1, 1, 2, 2, 2]
 
     # Evaluate the model on the normal data
     for num_eval_samples in evaluation_samples:
