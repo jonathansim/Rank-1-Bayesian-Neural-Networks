@@ -33,7 +33,7 @@ def evaluate(model, device, test_loader, num_eval_samples, dataset="normal"):
     torch.cuda.manual_seed_all(seed)  # If you are using CUDA
     np.random.seed(seed)
     random.seed(seed)
-    
+
     model.eval()
     correct = 0
     total = len(test_loader.dataset)
@@ -109,7 +109,7 @@ def main():
     corrupted_data_loader, normal_data_loader = load_corrupted_data(batch_size=batch_size, seed=5)
     
     # Define the number of evaluation samples to test
-    evaluation_samples = [1, 1, 1, 2, 2, 2]
+    evaluation_samples = [1, 5, 10, 15, 20, 25, 30, 35, 40]
 
     # Evaluate the model on the normal data
     for num_eval_samples in evaluation_samples:
