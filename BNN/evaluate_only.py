@@ -78,6 +78,12 @@ def main():
     # Parse arguments
     args = parser.parse_args()
 
+    seed = 42
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # If you are using CUDA
+    np.random.seed(seed)
+    random.seed(seed)
+
     # Wandb
     run_name = args.model
     wandb.init(project='evaluation_only', mode="online", name=run_name)

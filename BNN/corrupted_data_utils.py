@@ -30,14 +30,14 @@ class AddGaussianNoise(object):
 # Define the corruption transformations
 corruption_transform = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.05, 0.1))], p=0.5),  # Apply Gaussian blur
-    transforms.RandomApply([transforms.ColorJitter(brightness=0.1, contrast=0.05, hue=0.02, saturation=0.03)], p=0.50),  # Adjust brightness
-    transforms.RandomApply([transforms.RandomRotation(degrees=30)], p=0.5),  # Random rotation
-    transforms.RandomApply([transforms.RandomHorizontalFlip()], p=0.5),  # Random horizontal flip
-    transforms.RandomApply([transforms.Resize((24, 24)), transforms.Resize((32, 32))], p=0.5),  # Pixelate
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.03, 0.07))], p=0.2),  # Apply Gaussian blur
+    transforms.RandomApply([transforms.ColorJitter(brightness=0.1, contrast=0.03, hue=0.02, saturation=0.03)], p=0.2),  # Adjust brightness
+    transforms.RandomApply([transforms.RandomRotation(degrees=10)], p=0.2),  # Random rotation
+    transforms.RandomApply([transforms.RandomHorizontalFlip()], p=0.2),  # Random horizontal flip
+    transforms.RandomApply([transforms.Resize((24, 24)), transforms.Resize((32, 32))], p=0.2),  # Pixelate
     # transforms.RandomApply([transforms.ElasticTransform(alpha=5.0, sigma=2.0)], p=0.5),  # Elastic transformation
     transforms.ToTensor(),  # Ensure the image is a tensor
-    transforms.RandomApply([AddGaussianNoise(mean=0.0, std=0.03)], p=0.5),  # Add Gaussian noise
+    transforms.RandomApply([AddGaussianNoise(mean=0.0, std=0.02)], p=0.2),  # Add Gaussian noise
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),  # Normalize using CIFAR-10 stats
 ])
 
