@@ -37,7 +37,7 @@ parser.add_argument('--warmup-epochs', default=1, type=int, help="Number of warm
 parser.add_argument('--scheduler', default="warm", type=str, choices=["warm", "cosine", "multistep", "none"], help="which scheduler to use")
 
 # MC Dropout specific arguments
-parser.add_argument('--droprate', default=0.3, type=float, help="dropout probability")
+parser.add_argument('--droprate', default=0.1, type=float, help="dropout probability")
 parser.add_argument('--forward-passes', default=1, type=int, help="number of MC dropout forward passes for validation")
 
 
