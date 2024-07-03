@@ -140,3 +140,14 @@ def kl_divergence_mixture(posterior_means, posterior_stds, prior_mean, prior_std
 
     return kl_div.sum()
 
+
+def random_sign_initializer(tensor, probs=1.0):
+    """
+    Initialize the given tensor with +1 or -1 with the given probability.
+
+    Args:
+        tensor (torch.Tensor): Tensor to initialize.
+        probs (float): Probability of +1.
+    """
+    bernoulli = torch.bernoulli(torch.full(tensor.shape, probs, device=tensor.device, dtype=tensor.dtype))
+    tensor.data = 2 * bernoulli - 1

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from torch.distributions import Normal, kl_divergence, Cauchy
-from bnn_utils import kl_divergence_mixture
+from bnn_utils import kl_divergence_mixture, random_sign_initializer
 
 
 class Rank1BayesianLinear(nn.Module):
@@ -69,8 +69,12 @@ class Rank1BayesianLinear(nn.Module):
         nn.init.zeros_(self.bias) # Initialize bias to zeros
 
         # Initialize rank-1 perturbation parameters (mean)
-        nn.init.normal_(self.r, mean=1.0, std=self.mean_init_std) 
-        nn.init.normal_(self.s, mean=1.0, std=self.mean_init_std) 
+        if self.mean_init_std > 0:
+            random_sign_initializer(self.r, probs=self.mean_init_std)
+            random_sign_initializer(self.s, probs=self.mean_init_std)
+        else:
+            nn.init.normal_(self.r, mean=1.0, std=-self.mean_init_std) 
+            nn.init.normal_(self.s, mean=1.0, std=-self.mean_init_std) 
 
         stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
         # stddev_init = np.sqrt(self.dropout_rate_init / (1 - self.dropout_rate_init))

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from torch.distributions import Normal, kl_divergence, Cauchy
-from bnn_utils import kl_divergence_mixture
+from bnn_utils import kl_divergence_mixture, random_sign_initializer
 
 
 class Rank1BayesianConv2d(nn.Module):
@@ -46,6 +46,7 @@ class Rank1BayesianConv2d(nn.Module):
         self.mean_init_std = mean_init_std
         self.first_layer = first_layer
         
+        
     
         # Shared weight (created directly in layer) and bias    
         self.conv = nn.Conv2d(in_features, out_features, kernel_size, stride=stride, padding=padding, bias=False)
@@ -81,8 +82,12 @@ class Rank1BayesianConv2d(nn.Module):
             nn.init.zeros_(self.bias)
         
         # Initialize rank-1 perturbation parameters (mean)
-        nn.init.normal_(self.r, mean=1.0, std=self.mean_init_std) 
-        nn.init.normal_(self.s, mean=1.0, std=self.mean_init_std) 
+        if self.mean_init_std > 0:
+            random_sign_initializer(self.r, probs=self.mean_init_std)
+            random_sign_initializer(self.s, probs=self.mean_init_std)
+        else:
+            nn.init.normal_(self.r, mean=1.0, std=-self.mean_init_std) 
+            nn.init.normal_(self.s, mean=1.0, std=-self.mean_init_std) 
 
         # Initialize rank-1 log-std dev parameters
         stddev_init = np.log(np.expm1(np.sqrt(self.dropout_rate_init / (1. - self.dropout_rate_init))))
