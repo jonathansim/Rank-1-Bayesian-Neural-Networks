@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(description='Evaluate script for model (BNN)')
 
 # General arguments
 parser.add_argument('--model', type=str, default="placeholder", help='Path of model')
-parser.add_argument('num_eval_samples', default=10, type=int, help="Number of samples to use for evaluation")
+parser.add_argument('--num_eval_samples', default=10, type=int, help="Number of samples to use for evaluation")
 parser.add_argument('--ensemble-size', default=4, type=int, help="Number of models in the ensemble")
 
 
