@@ -30,14 +30,14 @@ class AddGaussianNoise(object):
 # Define the corruption transformations
 corruption_transform = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.03, 0.07))], p=0.2),  # Apply Gaussian blur
-    transforms.RandomApply([transforms.ColorJitter(brightness=0.1, contrast=0.03, hue=0.02, saturation=0.03)], p=0.2),  # Adjust brightness
-    transforms.RandomApply([transforms.RandomRotation(degrees=10)], p=0.2),  # Random rotation
-    transforms.RandomApply([transforms.RandomHorizontalFlip()], p=0.2),  # Random horizontal flip
-    transforms.RandomApply([transforms.Resize((24, 24)), transforms.Resize((32, 32))], p=0.2),  # Pixelate
-    # transforms.RandomApply([transforms.ElasticTransform(alpha=5.0, sigma=2.0)], p=0.5),  # Elastic transformation
+    transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.03, 0.08))], p=0.4),  # Apply Gaussian blur
+    transforms.RandomApply([transforms.ColorJitter(brightness=0.2, contrast=0.07, hue=0.08, saturation=0.06)], p=0.6),  # Adjust brightness
+    transforms.RandomApply([transforms.RandomRotation(degrees=20)], p=0.4),  # Random rotation
+    transforms.RandomApply([transforms.RandomHorizontalFlip()], p=0.35),  # Random horizontal flip
+    transforms.RandomApply([transforms.Resize((22, 22)), transforms.Resize((32, 32))], p=0.3),  # Pixelate
+    transforms.RandomApply([transforms.ElasticTransform(alpha=7.0, sigma=2.0)], p=0.5),  # Elastic transformation
     transforms.ToTensor(),  # Ensure the image is a tensor
-    transforms.RandomApply([AddGaussianNoise(mean=0.0, std=0.02)], p=0.2),  # Add Gaussian noise
+    transforms.RandomApply([AddGaussianNoise(mean=0.0, std=0.04)], p=0.4),  # Add Gaussian noise
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),  # Normalize using CIFAR-10 stats
 ])
 
@@ -84,7 +84,7 @@ def visualize_corrupted_data(data_loader):
 
     fig, axes = plt.subplots(1, 4, figsize=(12, 3))
     for i in range(4):
-        image = images[i+14].permute(1, 2, 0).numpy()
+        image = images[i+24].permute(1, 2, 0).numpy()
         image = (image * np.array([0.2023, 0.1994, 0.2010]) + np.array([0.4914, 0.4822, 0.4465])).clip(0, 1)  # De-normalize
         axes[i].imshow(image)
         axes[i].axis('off')
