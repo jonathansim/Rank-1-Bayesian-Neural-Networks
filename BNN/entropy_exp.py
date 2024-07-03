@@ -24,8 +24,17 @@ parser = argparse.ArgumentParser(description='Evaluate script for model (BNN)')
 
 # General arguments
 parser.add_argument('--model', type=str, default="placeholder", help='Path of model')
-parser.add_argument('--ensemble-size', default=2, type=int, help="Number of models in the ensemble")
+parser.add_argument('num_eval_samples', default=10, type=int, help="Number of samples to use for evaluation")
 
+
+# Function to compute entropy
+def compute_entropies(probabilities):
+    '''
+    Computes the entropy of a set of probabilities. 
+    Expected input shape: (batch_size, num_classes)
+    '''
+    entropies = - (probabilities * torch.log(probabilities)).sum(dim=1)
+    return entropies
 
 def evaluate(model, device, test_loader, num_eval_samples, dataset="normal"):
     seed = 42
@@ -35,14 +44,10 @@ def evaluate(model, device, test_loader, num_eval_samples, dataset="normal"):
     random.seed(seed)
 
     model.eval()
-    correct = 0
-    total = len(test_loader.dataset)
-    batch_size = test_loader.batch_size
-    total_nll = 0
     num_classes = 10 # CIFAR-10
-    ece_metric = CalibrationError(n_bins=15, norm='l1', task="multiclass", num_classes=num_classes).to(device)
 
-   
+    all_entropies = []
+    
     with torch.no_grad():
         for (inputs, labels) in test_loader: 
             inputs, labels = inputs.to(device), labels.to(device)
@@ -53,40 +58,22 @@ def evaluate(model, device, test_loader, num_eval_samples, dataset="normal"):
             logits = logits.permute(1, 2, 0, 3) # Shape: (batch_size, num_classes, ensemble_size, num_eval_samples)
             probs = torch.softmax(logits, dim=1)
 
-            # Duplicate labels for the ensemble size and num_eval_samples
-            labels_expanded = labels.unsqueeze(1).unsqueeze(2).expand(-1, model.ensemble_size, num_eval_samples) # Shape: (batch_size, ensemble_size, num_eval_samples)
-
-            # Compute the log likelihoods
-            log_likelihoods = - F.cross_entropy(logits, labels_expanded, reduction="none") # Shape: (batch_size, ensemble_size, num_eval_samples)
-            logsumexp_temp = - torch.logsumexp(log_likelihoods, dim=(1, 2)) + math.log(model.ensemble_size * num_eval_samples) # Eq. 14 in the paper
-            
-            # Return the mean NLL across the batch 
-            nll = logsumexp_temp.mean() 
-            total_nll += nll.item()
-
             # Average probs over ensemble_size and num_eval_samples, make predictions and compute accuracy
             mean_probs = probs.mean(dim=(2, 3)) # Shape: (batch_size, num_classes)
-            preds = mean_probs.argmax(dim=1) 
-            correct += preds.eq(labels).sum().item()
 
-            # Compute ECE
-            ece_metric.update(mean_probs, labels)
+            batch_entropies = compute_entropies(mean_probs)
+            all_entropies.append(batch_entropies.cpu().numpy())
 
-
-    average_nll = total_nll / len(test_loader)
-    accuracy = 100. * correct / total
-    ece = ece_metric.compute().item()
-    
-    wandb.log({f"{dataset}_average_nll": average_nll, f"{dataset}_accuracy": accuracy, f"{dataset}_ece": ece})
-
-    return accuracy, average_nll, ece
+    # Convert all entropies to a single numpy array
+    all_entropies = np.concatenate(all_entropies)
+    return all_entropies
 
 def main():
     # Parse arguments
     args = parser.parse_args()
 
     # Wandb
-    run_name = args.model
+    run_name = "entropy_exp_BNN"
     wandb.init(project='evaluation_only', mode="online", name=run_name)
     wandb.config.update(args)
 
@@ -110,17 +97,24 @@ def main():
     corrupted_data_loader, normal_data_loader = load_corrupted_data(batch_size=batch_size, seed=5)
     
     # Define the number of evaluation samples to test
-    evaluation_samples = [1, 5, 10, 15, 20, 25, 30, 35, 40]
+    num_eval_samples = args.num_eval_samples
 
     # Evaluate the model on the normal data
-    for num_eval_samples in evaluation_samples:
-        accuracy, average_nll, ece = evaluate(model, device, normal_data_loader, num_eval_samples, dataset="normal")
-        print(f"Normal data: Accuracy: {accuracy}, Average NLL: {average_nll}, ECE: {ece}")
-    
-    # Evaluate the model on the corrupted data
-    for num_eval_samples in evaluation_samples:
-        accuracy, average_nll, ece = evaluate(model, device, corrupted_data_loader, num_eval_samples, dataset="corrupted")
-        print(f"Corrupted data: Accuracy: {accuracy}, Average NLL: {average_nll}, ECE: {ece}")
+    corrupted_entropies = evaluate(model, device, corrupted_data_loader, num_eval_samples, dataset="corrupted")
+    normal_entropies = evaluate(model, device, normal_data_loader, num_eval_samples, dataset="normal")
+
+    # Save the lists as separate files within an artifact
+    artifact = wandb.Artifact('entropies_lists', type='dataset')
+    with artifact.new_file('BNN_normal_data_entropy.txt') as f:
+        f.write('\n'.join(map(str, normal_entropies)))
+    with artifact.new_file('BNN_corrupt_data_entropy.txt') as f:
+        f.write('\n'.join(map(str, corrupted_entropies)))
+
+    # Log the artifact
+    wandb.log_artifact(artifact)
+
+    # Finish the run
+    wandb.finish()
 
 if __name__ == "__main__":
     main()
