@@ -211,7 +211,7 @@ def main():
     if args.use_subset:
         run_name = f"TestRun_LearningRate"
     else:
-        run_name = f"run_M{args.ensemble_size}_B{batch_size}_NumSamp{args.num_eval_samples}_S{args.seed}_PriorStdDev{args.prior_stddev}" 
+        run_name = f"run_M{args.ensemble_size}_B{batch_size}_NumSamp{args.num_eval_samples}_S{args.seed}_PriorStdDev{args.prior_stddev}_NewInit" 
         # M for ensemble size, B for batch size, S for scheduler
     
     wandb.init(project='rank1-bnn-WR', mode=mode_for_wandb, name=run_name)
