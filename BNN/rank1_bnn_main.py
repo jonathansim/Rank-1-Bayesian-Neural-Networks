@@ -282,7 +282,7 @@ def main():
     if args.save_model:
         seed = args.seed
         ensemble_size = args.ensemble_size
-        model_name = f"BNN_seed{seed}_mixture{ensemble_size}.pth"
+        model_name = f"BNN_seed{seed}_mixture{ensemble_size}_NewInit.pth"
         torch.save(model.state_dict(), model_name)
     
     # Testing
