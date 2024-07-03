@@ -42,7 +42,7 @@ parser.add_argument('--save-model', default=True, type=bool, help="whether to sa
 # Rank-1 Bayesian specific arguments
 parser.add_argument('--ensemble-size', default=2, type=int, help="Number of models in the ensemble")
 parser.add_argument('--rank1-distribution', default="normal", type=str, choices=["normal", "cauchy"], help="Rank-1 distribution to use")
-parser.add_argument('--prior-mean', default=1.0, type=float, help="Mean for the prior distribution")
+parser.add_argument('--prior-mean', default=0.0, type=float, help="Mean for the prior distribution")
 parser.add_argument('--prior-stddev', default=0.1, type=float, help="Standard deviation for the prior distribution")
 parser.add_argument('--mean-init-std', default=0.5, type=float, help="Standard deviation for the mean initialization")
 parser.add_argument('--num-eval-samples', default=1, type=int, help="Number of samples to use for evaluation")
