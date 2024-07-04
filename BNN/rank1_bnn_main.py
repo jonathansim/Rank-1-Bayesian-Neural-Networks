@@ -271,7 +271,7 @@ def main():
               batch_counter=batch_counter, num_batches=num_batches, weight_decay=args.weight_decay, kl_annealing_epochs=kl_annealing_epochs, scheduler=scheduler)
         
         # old_evaluate(model=model, device=device, test_loader=val_loader)
-        _, _, _ = evaluate(model=model, device=device, test_loader=val_loader, num_eval_samples=args.num_eval_samples, phase="validation")
+        _, _, _ = evaluate(model=model, device=device, test_loader=val_loader, num_eval_samples=1, phase="validation")
         print("Done with evaluation")
 
         if args.scheduler == "multistep":
@@ -279,11 +279,12 @@ def main():
             print(f'After stepping scheduler, Learning Rate: {optimizer.param_groups[0]["lr"]}')
         
     # Save the model
-    if args.save_model:
-        seed = args.seed
-        ensemble_size = args.ensemble_size
-        model_name = f"BNN_seed{seed}_mixture{ensemble_size}_NewInit.pth"
-        torch.save(model.state_dict(), model_name)
+    if args.ensemble_size == 4:
+        if args.save_model:
+            seed = args.seed
+            ensemble_size = args.ensemble_size
+            model_name = f"BNN_seed{seed}_mixture{ensemble_size}_NewInit.pth"
+            torch.save(model.state_dict(), model_name)
     
     # Testing
     test_accuracy, test_nll, test_ece = evaluate(model=model, device=device, test_loader=test_loader, num_eval_samples=args.num_eval_samples, phase="testing")
