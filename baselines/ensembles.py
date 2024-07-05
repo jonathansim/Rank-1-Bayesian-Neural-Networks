@@ -104,7 +104,7 @@ def main():
 
     # Load model
     model_paths = [args.model1, args.model2, args.model3, args.model4]
-    model_class = WideResNet
+    model_class = WideResNet(depth=28, widen_factor=10, num_classes=10)
     models = load_models(model_paths, model_class, device)
 
     # Load data
