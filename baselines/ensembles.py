@@ -30,10 +30,10 @@ parser.add_argument('--run-name', type=str, default="ens_1234", help='Name of ru
 
 
 # Function to load models
-def load_models(model_paths, model_class, device):
+def load_models(model_paths, device):
     models = []
     for path in model_paths:
-        model = model_class().to(device)
+        model = WideResNet(depth=28, widen_factor=10, num_classes=10).to(device)
         model.load_state_dict(torch.load(path, map_location=device))
         model.eval()  # Set to evaluation mode
         models.append(model)
@@ -52,7 +52,7 @@ def evaluate(models, device, test_loader, dataset="normal"):
         for (inputs, labels) in test_loader: 
             inputs, labels = inputs.to(device), labels.to(device)
 
-            logits = torch.stack([model(inputs) for model in models], dim=2)
+            logits = torch.stack([models[0](inputs), models[1](inputs), models[2](inputs), models[3](inputs)], dim=2)
             probs = torch.softmax(logits, dim=1)
 
             
@@ -104,8 +104,7 @@ def main():
 
     # Load model
     model_paths = [args.model1, args.model2, args.model3, args.model4]
-    model_class = WideResNet(depth=28, widen_factor=10, num_classes=10)
-    models = load_models(model_paths, model_class, device)
+    models = load_models(model_paths, device)
 
     # Load data
     batch_size = 128
