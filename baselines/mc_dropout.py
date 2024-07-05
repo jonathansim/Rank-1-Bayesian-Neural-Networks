@@ -116,7 +116,7 @@ def evaluate(model, test_loader, device, epoch=None, num_forward_passes=1, phase
     with torch.no_grad():
         for (inputs, labels) in test_loader: 
             inputs, labels = inputs.to(device), labels.to(device)
-            logits = model(inputs)
+            # logits = model(inputs)
 
             # Handle multiple forward passes
             logits = torch.stack([model(inputs) for _ in range(num_forward_passes)], dim=2)
