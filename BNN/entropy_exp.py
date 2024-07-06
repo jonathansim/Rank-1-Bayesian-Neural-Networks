@@ -34,7 +34,7 @@ def compute_entropies(probabilities):
     Computes the entropy of a set of probabilities. 
     Expected input shape: (batch_size, num_classes)
     '''
-    entropies = - (probabilities * torch.log(probabilities)).sum(dim=1)
+    entropies = - (probabilities * torch.log2(probabilities)).sum(dim=1)
     return entropies
 
 def evaluate(model, device, test_loader, num_eval_samples, dataset="normal"):
