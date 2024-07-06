@@ -16,3 +16,5 @@ BNN_corrupt_data_entropy.txt
 BNN_normal_data_entropy.txt
 det_corrupt_data_entropy.txt
 det_normal_data_entropy.txt
+BNN_corrupt_data_entropy_v2.txt
+BNN_normal_data_entropy_v2.txt

@@ -24,15 +24,15 @@ parser = argparse.ArgumentParser(description='Evaluate script for model (BNN)')
 
 # General arguments
 parser.add_argument('--model', type=str, default="placeholder", help='Path of model')
-parser.add_argument('--ensemble-size', default=2, type=int, help="Number of models in the ensemble")
+parser.add_argument('--ensemble-size', default=4, type=int, help="Number of models in the ensemble")
 
 
 def evaluate(model, device, test_loader, num_eval_samples, dataset="normal"):
-    seed = 42
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)  # If you are using CUDA
-    np.random.seed(seed)
-    random.seed(seed)
+    # seed = 42
+    # torch.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed)  # If you are using CUDA
+    # np.random.seed(seed)
+    # random.seed(seed)
 
     model.eval()
     correct = 0
@@ -110,7 +110,7 @@ def main():
     corrupted_data_loader, normal_data_loader = load_corrupted_data(batch_size=batch_size, seed=5)
     
     # Define the number of evaluation samples to test
-    evaluation_samples = [1, 5, 10, 15]
+    evaluation_samples = [1, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100]
 
     # Evaluate the model on the normal data
     for num_eval_samples in evaluation_samples:
