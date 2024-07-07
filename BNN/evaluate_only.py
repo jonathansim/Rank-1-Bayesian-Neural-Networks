@@ -28,11 +28,11 @@ parser.add_argument('--ensemble-size', default=4, type=int, help="Number of mode
 
 
 def evaluate(model, device, test_loader, num_eval_samples, dataset="normal"):
-    # seed = 42
-    # torch.manual_seed(seed)
-    # torch.cuda.manual_seed_all(seed)  # If you are using CUDA
-    # np.random.seed(seed)
-    # random.seed(seed)
+    seed = 42
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # If you are using CUDA
+    np.random.seed(seed)
+    random.seed(seed)
 
     model.eval()
     correct = 0
