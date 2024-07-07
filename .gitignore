@@ -26,3 +26,4 @@ BNN_normal_data_entropy_NewInit_log2.txt
 BNN_normal_data_entropy_log2.txt
 det_corrupt_data_entropy_log2.txt
 det_normal_data_entropy_log2.txt
+results_processing/

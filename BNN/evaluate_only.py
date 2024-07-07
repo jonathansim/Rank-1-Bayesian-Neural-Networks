@@ -25,10 +25,10 @@ parser = argparse.ArgumentParser(description='Evaluate script for model (BNN)')
 # General arguments
 parser.add_argument('--model', type=str, default="placeholder", help='Path of model')
 parser.add_argument('--ensemble-size', default=4, type=int, help="Number of models in the ensemble")
+parser.add_argument('--seed', default=4, type=int, help="Seed")
 
 
-def evaluate(model, device, test_loader, num_eval_samples, dataset="normal"):
-    seed = 42
+def evaluate(model, device, test_loader, num_eval_samples, seed, dataset="normal"):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)  # If you are using CUDA
     np.random.seed(seed)
@@ -86,7 +86,7 @@ def main():
     args = parser.parse_args()
 
     # Wandb
-    run_name = args.model
+    run_name = f"{args.model}_{args.seed}"
     wandb.init(project='evaluation_only', mode="online", name=run_name)
     wandb.config.update(args)
 
@@ -110,16 +110,16 @@ def main():
     corrupted_data_loader, normal_data_loader = load_corrupted_data(batch_size=batch_size, seed=5)
     
     # Define the number of evaluation samples to test
-    evaluation_samples = [1, 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 100]
+    evaluation_samples = [1, 5, 25, 50]
 
     # Evaluate the model on the normal data
     for num_eval_samples in evaluation_samples:
-        accuracy, average_nll, ece = evaluate(model, device, normal_data_loader, num_eval_samples, dataset="normal")
+        accuracy, average_nll, ece = evaluate(model, device, normal_data_loader, num_eval_samples, seed=args.seed, dataset="normal")
         print(f"Normal data: Accuracy: {accuracy}, Average NLL: {average_nll}, ECE: {ece}")
     
     # Evaluate the model on the corrupted data
     for num_eval_samples in evaluation_samples:
-        accuracy, average_nll, ece = evaluate(model, device, corrupted_data_loader, num_eval_samples, dataset="corrupted")
+        accuracy, average_nll, ece = evaluate(model, device, corrupted_data_loader, num_eval_samples, seed=args.seed, dataset="corrupted")
         print(f"Corrupted data: Accuracy: {accuracy}, Average NLL: {average_nll}, ECE: {ece}")
 
 if __name__ == "__main__":
