@@ -19,6 +19,7 @@ from wide_resnet_mc_dropout import WideResNet
 
 from data_utils import load_data
 from custom_scheduler import WarmUpPiecewiseConstantSchedule
+from corrupted_data_utils import load_corrupted_data
 
 # Add parsing functionality 
 parser = argparse.ArgumentParser(description='MC dropout Wide ResNet (on CIFAR 10)')
@@ -194,6 +195,7 @@ def main():
 
     # Data pre-processing
     train_loader, val_loader, test_loader = load_data(batch_size=batch_size, seed=data_seed, subset_size=subset_size)
+    corrupted_test_loader, _ = load_corrupted_data(seed=5)
 
     # Set seed for training
     set_training_seed(training_seed)
@@ -237,6 +239,8 @@ def main():
         test_metrics = evaluate(model=model, test_loader=test_loader, device=device, phase="testing")
         print("Now computing test metrics!")
 
+    # Evaluate on the corrupted data
+    corrupted_metrics = evaluate(model=model, test_loader=corrupted_test_loader, device=device, phase="corrupted_testing")
 if __name__ == '__main__':
    main()
     # print("so this works")
