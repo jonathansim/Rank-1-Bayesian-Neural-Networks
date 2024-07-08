@@ -28,6 +28,15 @@ parser.add_argument('--model4', type=str, default="placeholder", help='Path of m
 parser.add_argument('--run-name', type=str, default="ens_1234", help='Name of run')
 
 
+# Function to compute entropy
+def compute_entropies(probabilities):
+    '''
+    Computes the entropy of a set of probabilities. 
+    Expected input shape: (batch_size, num_classes)
+    '''
+    entropies = - (probabilities * torch.log2(probabilities)).sum(dim=1)
+    return entropies
+
 
 # Function to load models
 def load_models(model_paths, device):
@@ -46,6 +55,7 @@ def evaluate(models, device, test_loader, dataset="normal"):
     total_nll = 0
     num_classes = 10 # CIFAR-10
     ece_metric = CalibrationError(n_bins=15, norm='l1', task="multiclass", num_classes=num_classes).to(device)
+    all_entropies = []
 
    
     with torch.no_grad():
@@ -75,6 +85,10 @@ def evaluate(models, device, test_loader, dataset="normal"):
             # Compute ECE
             ece_metric.update(mean_probs, labels)
 
+            # Compute entropies
+            batch_entropies = compute_entropies(mean_probs)
+            all_entropies.append(batch_entropies.cpu().numpy())
+
 
     average_nll = total_nll / len(test_loader)
     accuracy = 100. * correct / total
@@ -82,7 +96,9 @@ def evaluate(models, device, test_loader, dataset="normal"):
     
     wandb.log({f"{dataset}_average_nll": average_nll, f"{dataset}_accuracy": accuracy, f"{dataset}_ece": ece})
 
-    return accuracy, average_nll, ece
+    all_entropies = np.concatenate(all_entropies)
+
+    return accuracy, average_nll, ece, all_entropies
 
 def main():
     # Parse arguments
@@ -114,13 +130,27 @@ def main():
 
     # Evaluate the model on the normal data
     
-    accuracy, average_nll, ece = evaluate(models, device, normal_data_loader, dataset="normal")
+    accuracy, average_nll, ece, normal_entropies = evaluate(models, device, normal_data_loader, dataset="normal")
     print(f"Normal data: Accuracy: {accuracy}, Average NLL: {average_nll}, ECE: {ece}")
     
     # Evaluate the model on the corrupted data
     
-    accuracy, average_nll, ece = evaluate(models, device, corrupted_data_loader, dataset="corrupted")
+    accuracy, average_nll, ece, corrupted_entropies = evaluate(models, device, corrupted_data_loader, dataset="corrupted")
     print(f"Corrupted data: Accuracy: {accuracy}, Average NLL: {average_nll}, ECE: {ece}")
+
+
+    # Save the lists as separate files within an artifact
+    artifact = wandb.Artifact('entropies_lists_ens', type='dataset')
+    with artifact.new_file('ens_normal_data_entropy.txt') as f:
+        f.write('\n'.join(map(str, normal_entropies)))
+    with artifact.new_file('ens_corrupt_data_entropy.txt') as f:
+        f.write('\n'.join(map(str, corrupted_entropies)))
+
+    # Log the artifact
+    wandb.log_artifact(artifact)
+
+    # Finish the run
+    wandb.finish()
 
 if __name__ == "__main__":
     main()
