@@ -33,15 +33,14 @@ def compute_entropies(probabilities):
     entropies = - (probabilities * torch.log2(probabilities)).sum(dim=1)
     return entropies
 
-def evaluate(model, device, test_loader, dataset="normal"):
-    seed = 42
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)  # If you are using CUDA
-    np.random.seed(seed)
-    random.seed(seed)
-
+def evaluate(model, device, test_loader, dataset="normal", phase="testing"):
     model.eval()
+    correct = 0
+    total = len(test_loader.dataset)
+    total_nll = 0.0
     num_classes = 10 # CIFAR-10
+    ece_metric = CalibrationError(n_bins=15, norm='l1', task="multiclass", num_classes=num_classes).to(device)
+
 
     all_entropies = []
     
@@ -49,14 +48,32 @@ def evaluate(model, device, test_loader, dataset="normal"):
         for (inputs, labels) in test_loader: 
             inputs, labels = inputs.to(device), labels.to(device)
             logits = model(inputs)
+
+            # Calculate NLL loss
+            nll_loss = F.cross_entropy(logits, labels, reduction='sum')
+            total_nll += nll_loss.item()
             
             probs = torch.softmax(logits, dim=1)
+
+            # Compute accuracy
+            _, predicted = logits.max(1)
+            correct += predicted.eq(labels).sum().item()
+
+            # Compute ECE
+            ece_metric.update(probs, labels)
 
             batch_entropies = compute_entropies(probs)
             all_entropies.append(batch_entropies.cpu().numpy())
 
     # Convert all entropies to a single numpy array
     all_entropies = np.concatenate(all_entropies)
+
+    average_nll = total_nll / total
+    accuracy = 100. * correct / total
+    ece = ece_metric.compute().item()
+
+    wandb.log({f"{phase}_nll_loss": average_nll, f"{phase}_accuracy": accuracy, f"{phase}_ece": ece})
+    
     return all_entropies
 
 def main():
@@ -89,8 +106,8 @@ def main():
     
 
     # Evaluate the model on the normal data
-    corrupted_entropies = evaluate(model, device, corrupted_data_loader, dataset="corrupted")
-    normal_entropies = evaluate(model, device, normal_data_loader, dataset="normal")
+    corrupted_entropies = evaluate(model, device, corrupted_data_loader, dataset="corrupted", phase="corrupted_testing")
+    normal_entropies = evaluate(model, device, normal_data_loader, dataset="normal", phase="testing")
 
     # Save the lists as separate files within an artifact
     artifact = wandb.Artifact('entropies_lists_det', type='dataset')
