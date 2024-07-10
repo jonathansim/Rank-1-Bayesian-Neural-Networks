@@ -23,6 +23,6 @@ Furthermore, the script `split_data.py`was used to create the validation set use
 
 ## References 
 <a id="1">[1]</a> 
-Dusenberry, Michael, et al. "Efficient and scalable bayesian neural nets with rank-1 factors." International conference on machine learning. PMLR, 2020.
+Dusenberry, Michael, et al. "Efficient and scalable bayesian neural nets with rank-1 factors." International conference on machine learning. PMLR, 2020. https://arxiv.org/abs/2005.07186 
 
 
