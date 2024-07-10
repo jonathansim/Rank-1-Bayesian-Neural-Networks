@@ -1,5 +1,5 @@
 # Bachelor's Thesis: Rank-1-Bayesian-Neural-Networks
-Code used in my bachelor project studying the use of rank-1 factorization in regard to Bayesian neural networks (BNNs). This bachelor's thesis has been prepared at the Technical University of Denmark. It aims to reproduce the findings by Dusenberry et al. `[^1]`, who originally introduced rank-1 Bayesian neural networks in 2020. Furthermore, various experiments are conducted to validate the robustness and effiency of this framework.
+Code used in my bachelor project studying the use of rank-1 factorization in regard to Bayesian neural networks (BNNs). This bachelor's thesis has been prepared at the Technical University of Denmark. It aims to reproduce the findings by Dusenberry et al. [[1]](#1), who originally introduced rank-1 Bayesian neural networks in 2020. Furthermore, various experiments are conducted to validate the robustness and effiency of this framework.
 The rank-1 BNN as well as the baseline frameworks (a deterministic Wide ResNet, Monte Carlo dropout and Deep Ensembles) have been implemented in PyTorch. 
 
 ## Environment Setup
@@ -22,14 +22,7 @@ The folder `results_processing` contains various functionality used in process o
 Furthermore, the script `split_data.py`was used to create the validation set used in this project. 
 
 ## References 
-`[^1]` `@misc{dusenberry2020efficientscalablebayesianneural,
-      title={Efficient and Scalable Bayesian Neural Nets with Rank-1 Factors}, 
-      author={Michael W. Dusenberry and Ghassen Jerfel and Yeming Wen and Yi-An Ma and Jasper Snoek and Katherine Heller and Balaji Lakshminarayanan and Dustin Tran},
-      year={2020},
-      eprint={2005.07186},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2005.07186}
-}`
+<a id="1">[1]</a> 
+Dusenberry, Michael, et al. "Efficient and scalable bayesian neural nets with rank-1 factors." International conference on machine learning. PMLR, 2020.
 
 
